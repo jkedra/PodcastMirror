@@ -137,7 +137,7 @@ for i in soup.findAll('item'):
     # jak nie - iterujemy od początku
     try:
         podsize = int(getsize(podurl))
-    except IOError:
+    except (IOError, TypeError) as e:
         continue
 
     # write description to description file
