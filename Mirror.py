@@ -18,9 +18,13 @@ import urllib
 import httplib
 from BeautifulSoup import BeautifulSoup, BeautifulStoneSoup
 #from datetime import datetime
+import email.utils as eut
+import datetime
+#
 import codecs
 from urlparse import urlparse
 import shutil
+import argparse
 
 
 class PodcastURLopener(urllib.FancyURLopener):
@@ -97,9 +101,19 @@ def descwrite(i):
 
 """ MAIN PROGRAM STARTS HERE
 """
+parser = argparse.ArgumentParser()
+parser.add_argument("-v", "--verbose", help="increases verbosity",
+                    action="store_true")                    
+parser.add_argument("-d", "--days", type=int, default=30,
+                    help="how far in the past go")
+args = parser.parse_args()
+
+
 #baseurl = 'http://feeds.feedburner.com/zdzis?format=xml/'
 baseurl = 'http://feeds.feedburner.com/dailyaudiobible/'
 current_page = urllib2.urlopen(baseurl)
+
+
 
 #current_page = open('cache.html')
 soup = BeautifulSoup(current_page)
@@ -125,6 +139,7 @@ print items[1].find('media:content')['url'], "\n\n\n",
 os.chdir('DATA')
 for i in soup.findAll('item'):
     podname = i.title.string
+    poddate = datetime.datetime(*eut.parsedate(i.pubdate.string)[:6])
     podfmp3 = podname + '.mp3'
     podtmp3 = podname + '.mp3.part'
     podftxt = podname + '.txt'
@@ -132,7 +147,11 @@ for i in soup.findAll('item'):
     podsiz3 = 0
     posize  = 0
     
-    
+    if datetime.datetime.now() - poddate > datetime.timedelta(days=args.days) :
+        if args.verbose :
+            print "{} too old".format(podname, poddate)
+        continue
+        
     # sprawdźmy czy plik w ogóle da się ściągnąć
     # jak nie - iterujemy od początku
     try:
@@ -148,7 +167,8 @@ for i in soup.findAll('item'):
         # plik jest
         podsiz3 = os.stat(podfmp3).st_size   
         if podsiz3 == podsize :
-            print "Skipping ", podfmp3
+            if args.verbose :
+                print "Skipping ", podfmp3
             continue
         else:
             print "{} only {}<{} retrived - resuming".format(podfmp3,
@@ -188,5 +208,3 @@ for i in soup.findAll('item'):
 
         print "stored as ", podfmp3
  
-
-
