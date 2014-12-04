@@ -1,14 +1,9 @@
 #!/usr/bin/python
 #-*- coding: utf-8 -*-
 """ vim:ts=4:expandtab
-    (c) Jerzy Kędra 2013
+    (c) Jerzy Kędra 2013-2014
     Python 2.7
     TODO:
-        1.Check only last few podcasts by date
-          Don't try to download older podcasts than date specified.
-          For example - test last week only for regular podcast
-          donwload.
-            
         2.Non-verbose mode to be used from cron.
     
 """
@@ -103,40 +98,19 @@ def descwrite(i):
 """
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", help="increases verbosity",
-                    action="store_true")                    
+                    action="count")                    
 parser.add_argument("-d", "--days", type=int, default=30,
                     help="how far in the past go")
+parser.add_argument("-t", "--target", default="DATA",
+                    help="target data directory")
 args = parser.parse_args()
-
 
 #baseurl = 'http://feeds.feedburner.com/zdzis?format=xml/'
 baseurl = 'http://feeds.feedburner.com/dailyaudiobible/'
 current_page = urllib2.urlopen(baseurl)
-
-
-
-#current_page = open('cache.html')
 soup = BeautifulSoup(current_page)
 
-# SAVING THE SOUP IN A FILE
-fs = open('cache-soup.html', 'w')
-fs.write(soup.prettify())
-# exit()
-
-"""
-c = soup.find('div', {'id':'story'})
-contpage = c.find('div', {'class':'articlePaged_Next'}).a['href']
-soup.find('div', {'id':'story'})
-if len(contpage) > 0 :
-       current_page = urllib2.urlopen(baseurl+contpage)
-    soupadd = BeautifulSoup(current_page).find('div', {'id':'story'})
-
-items = soup.findAll('item')
-print items[1].find('media:content')['url'], "\n\n\n",
-    items[1].title.string, "\n\n\n", items[1].description.string
-"""
-
-os.chdir('DATA')
+os.chdir(args.target)
 for i in soup.findAll('item'):
     podname = i.title.string
     poddate = datetime.datetime(*eut.parsedate(i.pubdate.string)[:6])
@@ -148,7 +122,7 @@ for i in soup.findAll('item'):
     posize  = 0
     
     if datetime.datetime.now() - poddate > datetime.timedelta(days=args.days) :
-        if args.verbose :
+        if args.verbose > 2 :
             print "{} too old".format(podname, poddate)
         continue
         
@@ -167,18 +141,20 @@ for i in soup.findAll('item'):
         # plik jest
         podsiz3 = os.stat(podfmp3).st_size   
         if podsiz3 == podsize :
-            if args.verbose :
+            if args.verbose > 1 :
                 print "Skipping ", podfmp3
             continue
         else:
             print "{} only {}<{} retrived - resuming".format(podfmp3,
                     podsiz3, podsize)
-
             try:
                 # it takes some time for large files
                 urllib._urlopener = PodcastURLopener()
                 urllib._urlopener.addheader("Range","bytes=%s-" % (podsiz3))
-                urllib.urlretrieve(podurl, podtmp3, reporthook=reporthook)
+                if args.verbose :
+                    urllib.urlretrieve(podurl, podtmp3, reporthook=reporthook)
+                else :
+                    urllib.urlretrieve(podurl, podtmp3)
                 urllib._urlopener = urllib.FancyURLopener()
                 fsrc = open(podtmp3)
                 fdst = open(podfmp3, "a")
@@ -190,7 +166,8 @@ for i in soup.findAll('item'):
             except urllib.ContentTooShortError:
                 print "\tfailed to retrieve ", podurl
                 if os.path.exists(podtmp3) :
-                    print "\tremoving ", podtmp3
+                    if args.verbose :
+                        print "\tremoving ", podtmp3
                     os.unlink(podtmp3)
                 continue
     
@@ -198,11 +175,16 @@ for i in soup.findAll('item'):
         print "Downloading ", podfmp3    
         try:
             # it takes some time for large files
-            urllib.urlretrieve(podurl, podfmp3, reporthook=reporthook)
+            if args.verbose :
+                urllib.urlretrieve(podurl, podfmp3, reporthook=reporthook)
+            else :
+                urllib.urlretrieve(podurl, podfmp3)
+        
         except urllib.ContentTooShortError:
             print "\tfailed to retrieve ", podurl
             if os.path.exists(podfmp3) :
-                print "\tremoving ", podfmp3
+                if args.verbose :
+                    print "\tremoving ", podfmp3
                 os.unlink(podfmp3)
             continue
 

@@ -1,4 +1,5 @@
 Ten projekt jest do mirrorowania podkastów.
 
 Dependencies:
+apt-get install python-pip
 pip install BeautifulSoup
