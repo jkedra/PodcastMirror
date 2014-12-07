@@ -93,7 +93,7 @@ def descwrite(i):
 
 def initLog(log, args):
     """Initializes logging system"""
-    log_levels = { 0 : logging.WARN,
+    log_levels = { None : logging.WARN,
                    1 : logging.INFO,
                    2 : logging.DEBUG }
     log.setLevel(log_levels[args.verbose])
