@@ -4,7 +4,6 @@
     (c) Jerzy Kędra 2013-2014
     Python 2.7
     TODO:
-        2.Non-verbose mode to be used from cron.
     
 """
 import os
@@ -20,6 +19,7 @@ import codecs
 from urlparse import urlparse
 import shutil
 import argparse
+import logging
 
 
 class PodcastURLopener(urllib.FancyURLopener):
@@ -65,12 +65,11 @@ def getsize(url):
 
     elif res.status == 200:
         # inne interesujace tagi: etag
-        # print res.getheader('content-length')
         return res.getheader('content-length')
     else:
-        print "getsize() UNKNOWN PROBLEM"
-        print res.reason, ": ", res.getheader('location')
-        print res.getheaders()
+        log.warn( "getsize() UNKNOWN PROBLEM" )
+        log.warn( "{}: {} ".format(res.reason, res.getheader('location')) )
+        log.warn( res.getheaders() )
         raise IOError
 
 def descwrite(i):
@@ -96,6 +95,20 @@ def descwrite(i):
 
 """ MAIN PROGRAM STARTS HERE
 """
+log = logging.getLogger(__name__)
+
+# create console handler and set level to debug
+chnStr = logging.StreamHandler()
+chnStr.setLevel(logging.INFO)
+chnStr.setFormatter( logging.Formatter("%(levelname)s:%(message)s") )
+
+chnLog = logging.FileHandler("mirror.log", mode='a')
+chnLog.setLevel(logging.WARN)
+chnLog.setFormatter( logging.Formatter("%(asctime)s [%(levelname)s]: %(message)s") )
+
+log.addHandler( chnStr )
+log.addHandler( chnLog )
+
 parser = argparse.ArgumentParser()
 parser.add_argument("-v", "--verbose", help="increases verbosity",
                     action="count")                    
@@ -105,12 +118,20 @@ parser.add_argument("-t", "--target", default="DATA",
                     help="target data directory")
 args = parser.parse_args()
 
+if args.verbose > 0 :
+    chnLog.setLevel(logging.DEBUG)
+
 #baseurl = 'http://feeds.feedburner.com/zdzis?format=xml/'
 baseurl = 'http://feeds.feedburner.com/dailyaudiobible/'
 current_page = urllib2.urlopen(baseurl)
 soup = BeautifulSoup(current_page)
 
+if not os.path.isdir(args.target) :
+    os.makedirs(args.target)
+log.debug("changing dir to {}".format(args.target))
 os.chdir(args.target)
+ 
+
 for i in soup.findAll('item'):
     podname = i.title.string
     poddate = datetime.datetime(*eut.parsedate(i.pubdate.string)[:6])
@@ -122,8 +143,7 @@ for i in soup.findAll('item'):
     posize  = 0
     
     if datetime.datetime.now() - poddate > datetime.timedelta(days=args.days) :
-        if args.verbose > 2 :
-            print "{} too old".format(podname, poddate)
+        log.debug( "{} too old".format(podname, poddate) )
         continue
         
     # sprawdźmy czy plik w ogóle da się ściągnąć
@@ -141,12 +161,12 @@ for i in soup.findAll('item'):
         # plik jest
         podsiz3 = os.stat(podfmp3).st_size   
         if podsiz3 == podsize :
-            if args.verbose > 1 :
-                print "Skipping ", podfmp3
+            log.debug( "Skipping {}".format(podfmp3) )
             continue
         else:
-            print "{} only {}<{} retrived - resuming".format(podfmp3,
-                    podsiz3, podsize)
+            log.info(
+                "{} only {}<{} retrived - resuming".format(podfmp3,
+                    podsiz3, podsize) )
             try:
                 # it takes some time for large files
                 urllib._urlopener = PodcastURLopener()
@@ -164,15 +184,14 @@ for i in soup.findAll('item'):
                 os.unlink(podtmp3)
             
             except urllib.ContentTooShortError:
-                print "\tfailed to retrieve ", podurl
+                log.warning( "failed to retrieve {} ".format(podurl) )
                 if os.path.exists(podtmp3) :
-                    if args.verbose :
-                        print "\tremoving ", podtmp3
+                    log.debug( "removing {}".format(podtmp3) )
                     os.unlink(podtmp3)
                 continue
     
     else :
-        print "Downloading ", podfmp3    
+        log.info( "Downloading {}".format(podfmp3) )    
         try:
             # it takes some time for large files
             if args.verbose :
@@ -181,12 +200,11 @@ for i in soup.findAll('item'):
                 urllib.urlretrieve(podurl, podfmp3)
         
         except urllib.ContentTooShortError:
-            print "\tfailed to retrieve ", podurl
+            log.warning( "failed to retrieve {}".format(podurl) )
             if os.path.exists(podfmp3) :
-                if args.verbose :
-                    print "\tremoving ", podfmp3
+                log.debug( "removing {}".format(podfmp3) )
                 os.unlink(podfmp3)
             continue
 
-        print "stored as ", podfmp3
+        log.debug( "stored as {}".format(podfmp3) )
  
