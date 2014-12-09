@@ -1,11 +1,19 @@
 #!/usr/bin/python
 #-*- coding: utf-8 -*-
-""" vim:ts=4:expandtab
-    (c) Jerzy Kędra 2013-2014
-    Python 2.7
-    TODO(Jurek): nothing currently
-
+# vim:ts=4:expandtab
+# (c) Jerzy Kędra 2013-2014
+# Python 2.7
+""" Mirror.py : Mirror a podcast to local resource.
+    This script is intendent to be run daily from cron,
+    and copy incoming podcasts into a local directory.
+    Primarily designed to mirror Daily Audio Biblle podcasts,
+    after I have got caught with missing podcasts with end of
+    the year, when Brian Hardin (podcast autor) removed the old
+    podcasts and started a new yearly cycle.
+    
+    Docstrings: https://www.python.org/dev/peps/pep-0257/
 """
+
 import os
 import urllib2
 import urllib
@@ -23,15 +31,18 @@ import logging
 
 
 class PodcastURLopener(urllib.FancyURLopener):
-    """Create sub-class in order to overide error 206.  This error means a
-       partial file is being sent, which is ok in this case.
+    """Create sub-class in order to overide error 206.
+    
+       The error means a partial file is being sent,
+       which is ok in this case.
        Do nothing with this error.
     """
+    
     def http_error_206(self, url, fp, errcode, errmsg, headers, data=None):
         pass
 
 def reporthook(blocks_read, block_size, total_size):
-    """Progress printing, it is an argument to urlretrieve."""
+    """Print progress. It is an argument to urlretrieve."""
     total_size = podsize
 
     if not blocks_read:
@@ -53,17 +64,18 @@ def reporthook(blocks_read, block_size, total_size):
 
 # returns size of the http object, follows redirs
 def getsize(url):
-    """Returns Content-Length value for given URL. Follows redirs."""
+    """Return Content-Length value for given URL. Follow redirs."""
     o = urlparse(url)
     conn = httplib.HTTPConnection(o.netloc)
     conn.request("HEAD", o.path)
     res = conn.getresponse()
 
-    if res.status == 301 or res.status == 302:	# poprawic na kod opisowy
+    # https://docs.python.org/2/library/httplib.html
+    statuses = (httplib.MOVED_PERMANENTLY, httplib.FOUND)
+    if res.status in statuses:
         # print res.reason, ": ", res.getheader('location')
         return getsize(res.getheader('location'))
-
-    elif res.status == 200:
+    elif res.status == httplib.OK:
         # inne interesujace tagi: etag
         return res.getheader('content-length')
     else:
@@ -73,7 +85,7 @@ def getsize(url):
         raise IOError
 
 def descwrite(i):
-    """Writes a description in a file for given podcast."""
+    """Write a description in a file for given podcast."""
     podnm = i.title.string
     f = codecs.open(podftxt, encoding='utf-8', mode='w')
 
@@ -92,7 +104,7 @@ def descwrite(i):
         f.write(i.description.string)
 
 def initLog(log, args):
-    """Initializes logging system"""
+    """Initialize logging system"""
     log_levels = { None : logging.WARN,
                    1 : logging.INFO,
                    2 : logging.DEBUG }
