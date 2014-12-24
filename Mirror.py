@@ -10,11 +10,14 @@
     after I have got caught with missing podcasts with end of
     the year, when Brian Hardin (podcast autor) removed the old
     podcasts and started a new yearly cycle.
+    Default config: mirror.cfg
+    Config properites:
     
-    Docstrings: https://www.python.org/dev/peps/pep-0257/
+    TODO: limit max nr of podcasts downloaded in one pass.
 """
 
 import os
+import sys
 import urllib2
 import urllib
 import httplib
@@ -28,6 +31,7 @@ from urlparse import urlparse
 import shutil
 import argparse
 import logging
+import ConfigParser
 
 
 class PodcastURLopener(urllib.FancyURLopener):
@@ -108,6 +112,7 @@ def initLog(log, args):
     log_levels = { None : logging.WARN,
                    1 : logging.INFO,
                    2 : logging.DEBUG }
+                   
     log.setLevel(log_levels[args.verbose])
     
     if args.logfile:
@@ -122,26 +127,44 @@ def initLog(log, args):
         chnStr.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
         log.addHandler(chnStr)
 
-# MAIN PROGRAM STARTS HERE
-parser = argparse.ArgumentParser()
-parser.add_argument("-v", "--verbose", action="count",
-                    help="increases verbosity")
-parser.add_argument("-d", "--days", type=int, default=30,
-                    help="how far in the past go")
-parser.add_argument("-t", "--target", default="DATA",
-                    help="target data directory")
-parser.add_argument("-l", "--logfile",
-                    help="logging to file, log file path required")
-parser.add_argument("-s", "--silent", action="store_true",
-                    help="silent mode - suppress terminal output")
-args = parser.parse_args()
+def initParser():
+    p = argparse.ArgumentParser()
+    p.add_argument("-v", "--verbose", action="count",
+                        help="increases verbosity")
+    p.add_argument("-d", "--days", type=int, default=30,
+                        help="how far in the past go")
+    p.add_argument("-t", "--target", default="DATA",
+                        help="target data directory")
+    p.add_argument("-l", "--logfile",
+                        help="logging to file, log file path required")
+    p.add_argument("-s", "--silent", action="store_true",
+                        help="silent mode - suppress terminal output")
+    return p.parse_args()
 
+class Startup:
+    """ Collect required info to start the program.
+            
+        TODO: parse config files.
+              parse command arguments
+    """
+    pass
+
+# MAIN PROGRAM STARTS HERE
+
+args = initParser()
 log = logging.getLogger(__name__)
 initLog(log, args)
 
+config = ConfigParser.ConfigParser()
+cf=config.read(['mirror.cfg', os.path.expanduser('~/.mirror.cfg')])
+if len(cf)==0:
+    print "config file not found"
+    sys.exit(-1)
+else:
+    log.debug("config file %s" % str(cf))
+    
+baseurl = config.get("RSS", "baseurl")
 
-#baseurl = 'http://feeds.feedburner.com/zdzis?format=xml/'
-baseurl = 'http://feeds.feedburner.com/dailyaudiobible/'
 current_page = urllib2.urlopen(baseurl)
 soup = BeautifulSoup(current_page)
 
