@@ -32,15 +32,13 @@ import shutil
 import argparse
 import logging
 import ConfigParser
-import UserDict
 
 
 class PodcastURLopener(urllib.FancyURLopener):
     """Create sub-class in order to overide error 206.
     
        The error means a partial file is being sent,
-       which is ok in this case.
-       Do nothing with this error.
+       which is ok in this case. Do nothing with this error.
     """
     
     def http_error_206(self, url, fp, errcode, errmsg, headers, data=None):
@@ -56,7 +54,7 @@ def reporthook(blocks_read, block_size, total_size):
         # Unknown size
         print ' Read %d blocks' % blocks_read
     else:
-        amount_read = blocks_read * block_size + pi.siz3
+        amount_read = blocks_read * block_size + pi.sizesofar
         print ' Read ',
         if amount_read < 1024*1024:
             print '%dkB ' % (amount_read/1024),
@@ -89,12 +87,10 @@ def getsize(url):
         log.warn(res.getheaders())
         raise IOError
 
-def descwrite(i):
+def descwrite2file(pi):
     """Write a description in a file for given podcast."""
-    podnm = i.title.string
-    f = codecs.open(pi.ftxt, encoding='utf-8', mode='w')
-
-    f.write(podnm)
+    f = codecs.open(pi.file_txt, encoding='utf-8', mode='w')
+    f.write(pi.name)
     f.write("\n\n")
     # enclosing in try-exception because of this error
     # TypeError: coercing to Unicode: need string or buffer, Tag found
@@ -106,7 +102,7 @@ def descwrite(i):
                                 convertEntities=
                                 BeautifulStoneSoup.HTML_ENTITIES).contents[0])
     except TypeError:
-        f.write(i.description.string)
+        f.write(pi.description)
 
 def initLog(log, args):
     """Initialize logging system"""
@@ -151,11 +147,12 @@ class PodcastItem:
             return
         self.name = item.title.string
         self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
-        self.fmp3 = self.name + '.mp3'
-        self.tmp3 = self.name + '.mp3.part'
-        self.ftxt = self.name + '.txt'
+        self.description = item.description.string;
+        self.file_mp3 = self.name + '.mp3'
+        self.file_temp = self.name + '.mp3.part'
+        self.file_txt = self.name + '.txt'
         self.url = item.find('media:content')['url']
-        self.siz3 = 0
+        self.sizesofar = 0
         self.size = 0
 
 # MAIN PROGRAM STARTS HERE
@@ -191,64 +188,61 @@ for i in soup.findAll('item'):
         log.debug("{} too old".format(pi.name, pi.date))
         continue
 
-    # sprawdźmy czy plik w ogóle da się ściągnąć
-    # jak nie - iterujemy od początku
+    # czy plik w ogóle da się ściągnąć, iterujemy od początku jak nie
     try:
         pi.size = int(getsize(pi.url))
     except (IOError, TypeError) as e:
         continue
+    
+    if not os.path.exists(pi.file_txt): descwrite2file(pi)
 
-    # write description to description file
-    if not os.path.exists(pi.ftxt):
-        descwrite(i)
-
-    if os.path.exists(pi.fmp3):
-        # plik jest
-        pi.siz3 = os.stat(pi.fmp3).st_size
-        if pi.siz3 == pi.size:
-            log.debug("Skipping {}".format(pi.fmp3))
+    if os.path.exists(pi.file_mp3):
+        pi.sizesofar = os.stat(pi.file_mp3).st_size
+        file_complete = (pi.sizesofar == pi.size)
+        
+        if file_complete:
+            log.debug("Skipping {}".format(pi.file_mp3))
             continue
         else:
-            log.info(
-                "{} only {}<{} retrived - resuming".format(pi.fmp3,
-                    pi.siz3, pi.size))
+            log.info("%s partially retrieved - resuming" % pi.file_mp3)
+            log.debug("only {}<{} retrived".format(pi.sizesofar, pi.size))
             try:
-                # it takes some time for large files
                 urllib._urlopener = PodcastURLopener()
-                urllib._urlopener.addheader("Range", "bytes=%s-" % (pi.siz3))
+                urllib._urlopener.addheader("Range", "bytes=%s-" % (pi.sizesofar))
                 if args.verbose > 1 and not args.silent:
-                    urllib.urlretrieve(pi.url, pi.tmp3, reporthook=reporthook)
+                    urllib.urlretrieve(pi.url, pi.file_temp, reporthook=reporthook)
                 else:
-                    urllib.urlretrieve(pi.url, pi.tmp3)
+                    urllib.urlretrieve(pi.url, pi.file_temp)
                 urllib._urlopener = urllib.FancyURLopener()
-                fsrc = open(pi.tmp3)
-                fdst = open(pi.fmp3, "a")
+                
+                fsrc = open(pi.file_temp)
+                fdst = open(pi.file_mp3, "a")
                 shutil.copyfileobj(fsrc, fdst)
                 fsrc.close()
                 fdst.close()
-                os.unlink(pi.tmp3)
+                os.unlink(pi.file_temp)
 
             except urllib.ContentTooShortError:
                 log.warning("failed to retrieve {} ".format(pi.url))
-                if os.path.exists(pi.tmp3):
-                    log.debug("removing {}".format(pi.tmp3))
-                    os.unlink(pi.tmp3)
+                if os.path.exists(pi.file_temp):
+                    log.debug("removing {}".format(pi.file_temp))
+                    os.unlink(pi.file_temp)
                 continue
 
     else:
-        log.info("Downloading {}".format(pi.fmp3))
+        log.info("Downloading {}".format(pi.file_mp3))
         try:
             # it takes some time for large files
             if args.verbose:
-                urllib.urlretrieve(pi.url, pi.fmp3, reporthook=reporthook)
+                urllib.urlretrieve(pi.url, pi.file_mp3, reporthook=reporthook)
             else:
-                urllib.urlretrieve(pi.url, pi.fmp3)
+                urllib.urlretrieve(pi.url, pi.file_mp3)
 
         except urllib.ContentTooShortError:
             log.warning("failed to retrieve {}".format(pi.url))
-            if os.path.exists(pi.fmp3):
-                log.debug("removing {}".format(pi.fmp3))
-                os.unlink(pi.fmp3)
+            if os.path.exists(pi.file_mp3):
+                log.debug("removing {}".format(pi.file_mp3))
+                os.unlink(pi.file_mp3)
             continue
 
-        log.debug("stored as {}".format(pi.fmp3))
+        log.debug("stored as {}".format(pi.file_mp3))
