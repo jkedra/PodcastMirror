@@ -48,7 +48,7 @@ class PodcastURLopener(urllib.FancyURLopener):
 
 def reporthook(blocks_read, block_size, total_size):
     """Print progress. It is an argument to urlretrieve."""
-    total_size = pi.podsize
+    total_size = pi.size
 
     if not blocks_read:
         return
@@ -56,7 +56,7 @@ def reporthook(blocks_read, block_size, total_size):
         # Unknown size
         print ' Read %d blocks' % blocks_read
     else:
-        amount_read = blocks_read * block_size + pi.podsiz3
+        amount_read = blocks_read * block_size + pi.siz3
         print ' Read ',
         if amount_read < 1024*1024:
             print '%dkB ' % (amount_read/1024),
@@ -92,7 +92,7 @@ def getsize(url):
 def descwrite(i):
     """Write a description in a file for given podcast."""
     podnm = i.title.string
-    f = codecs.open(pi.podftxt, encoding='utf-8', mode='w')
+    f = codecs.open(pi.ftxt, encoding='utf-8', mode='w')
 
     f.write(podnm)
     f.write("\n\n")
@@ -149,14 +149,14 @@ class PodcastItem:
     def __init__(self, item):
         if type(item) is not Tag:
             return
-        self.podname = item.title.string
-        self.poddate = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
-        self.podfmp3 = self.podname + '.mp3'
-        self.podtmp3 = self.podname + '.mp3.part'
-        self.podftxt = self.podname + '.txt'
-        self.podurl = item.find('media:content')['url']
-        self.podsiz3 = 0
-        self.posize = 0
+        self.name = item.title.string
+        self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
+        self.fmp3 = self.name + '.mp3'
+        self.tmp3 = self.name + '.mp3.part'
+        self.ftxt = self.name + '.txt'
+        self.url = item.find('media:content')['url']
+        self.siz3 = 0
+        self.size = 0
 
 # MAIN PROGRAM STARTS HERE
 
@@ -186,69 +186,69 @@ os.chdir(args.target)
 for i in soup.findAll('item'):
     pi = PodcastItem(i)
 
-    podcast_age = datetime.datetime.now() - pi.poddate
+    podcast_age = datetime.datetime.now() - pi.date
     if podcast_age > datetime.timedelta(days=args.days):
-        log.debug("{} too old".format(pi.podname, pi.poddate))
+        log.debug("{} too old".format(pi.name, pi.date))
         continue
 
     # sprawdźmy czy plik w ogóle da się ściągnąć
     # jak nie - iterujemy od początku
     try:
-        pi.podsize = int(getsize(pi.podurl))
+        pi.size = int(getsize(pi.url))
     except (IOError, TypeError) as e:
         continue
 
     # write description to description file
-    if not os.path.exists(pi.podftxt):
+    if not os.path.exists(pi.ftxt):
         descwrite(i)
 
-    if os.path.exists(pi.podfmp3):
+    if os.path.exists(pi.fmp3):
         # plik jest
-        pi.podsiz3 = os.stat(pi.podfmp3).st_size
-        if pi.podsiz3 == pi.podsize:
-            log.debug("Skipping {}".format(pi.podfmp3))
+        pi.siz3 = os.stat(pi.fmp3).st_size
+        if pi.siz3 == pi.size:
+            log.debug("Skipping {}".format(pi.fmp3))
             continue
         else:
             log.info(
-                "{} only {}<{} retrived - resuming".format(pi.podfmp3,
-                    pi.podsiz3, pi.podsize))
+                "{} only {}<{} retrived - resuming".format(pi.fmp3,
+                    pi.siz3, pi.size))
             try:
                 # it takes some time for large files
                 urllib._urlopener = PodcastURLopener()
-                urllib._urlopener.addheader("Range", "bytes=%s-" % (pi.podsiz3))
+                urllib._urlopener.addheader("Range", "bytes=%s-" % (pi.siz3))
                 if args.verbose > 1 and not args.silent:
-                    urllib.urlretrieve(pi.podurl, pi.podtmp3, reporthook=reporthook)
+                    urllib.urlretrieve(pi.url, pi.tmp3, reporthook=reporthook)
                 else:
-                    urllib.urlretrieve(pi.podurl, pi.podtmp3)
+                    urllib.urlretrieve(pi.url, pi.tmp3)
                 urllib._urlopener = urllib.FancyURLopener()
-                fsrc = open(pi.podtmp3)
-                fdst = open(pi.podfmp3, "a")
+                fsrc = open(pi.tmp3)
+                fdst = open(pi.fmp3, "a")
                 shutil.copyfileobj(fsrc, fdst)
                 fsrc.close()
                 fdst.close()
-                os.unlink(pi.podtmp3)
+                os.unlink(pi.tmp3)
 
             except urllib.ContentTooShortError:
-                log.warning("failed to retrieve {} ".format(pi.podurl))
-                if os.path.exists(pi.podtmp3):
-                    log.debug("removing {}".format(pi.podtmp3))
-                    os.unlink(pi.podtmp3)
+                log.warning("failed to retrieve {} ".format(pi.url))
+                if os.path.exists(pi.tmp3):
+                    log.debug("removing {}".format(pi.tmp3))
+                    os.unlink(pi.tmp3)
                 continue
 
     else:
-        log.info("Downloading {}".format(pi.podfmp3))
+        log.info("Downloading {}".format(pi.fmp3))
         try:
             # it takes some time for large files
             if args.verbose:
-                urllib.urlretrieve(pi.podurl, pi.podfmp3, reporthook=reporthook)
+                urllib.urlretrieve(pi.url, pi.fmp3, reporthook=reporthook)
             else:
-                urllib.urlretrieve(pi.podurl, pi.podfmp3)
+                urllib.urlretrieve(pi.url, pi.fmp3)
 
         except urllib.ContentTooShortError:
-            log.warning("failed to retrieve {}".format(pi.podurl))
-            if os.path.exists(pi.podfmp3):
-                log.debug("removing {}".format(pi.podfmp3))
-                os.unlink(pi.podfmp3)
+            log.warning("failed to retrieve {}".format(pi.url))
+            if os.path.exists(pi.fmp3):
+                log.debug("removing {}".format(pi.fmp3))
+                os.unlink(pi.fmp3)
             continue
 
-        log.debug("stored as {}".format(pi.podfmp3))
+        log.debug("stored as {}".format(pi.fmp3))
