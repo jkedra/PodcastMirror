@@ -102,7 +102,7 @@ def descwrite(i):
 baseurl = 'http://feeds.feedburner.com/zdzis?format=xml/'
 current_page = urllib2.urlopen(baseurl)
 
-#current_page = open('cache.html')
+#current_page = open('cache-soup.html')
 soup = BeautifulSoup(current_page)
 
 # SAVING THE SOUP IN A FILE
