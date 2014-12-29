@@ -64,8 +64,6 @@ def reporthook(blocks_read, block_size, total_size):
         print '%d%%    \r' % (100*amount_read/total_size),
     return
 
-
-# returns size of the http object, follows redirs
 def getsize(url):
     """Return Content-Length value for given URL. Follow redirs."""
     o = urlparse(url)
@@ -124,6 +122,22 @@ def initLog(log, args):
         chnStr.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
         log.addHandler(chnStr)
 
+def appendThenRemove(src_name, dst_name):
+    """Append to the end of destination and unlink the source"""
+    fsrc = open(src_name)
+    fdst = open(dst_name, "a")
+    shutil.copyfileobj(fsrc, fdst)
+    fsrc.close()
+    fdst.close()
+    os.unlink(src_name);
+    
+def contentTooShortCleanup(url, path):
+    """Cleanup after the exception"""
+    log.warning("failed to retrieve %s " % url)
+    if os.path.exists(path):
+        log.debug("removing %s" % path)
+        os.unlink(path)
+                
 def initParser():
     p = argparse.ArgumentParser()
     p.add_argument("-v", "--verbose", action="count",
@@ -196,6 +210,12 @@ for i in soup.findAll('item'):
     
     if not os.path.exists(pi.file_txt): descwrite2file(pi)
 
+    if args.verbose > 1 and not args.silent:
+        report_type = reporthook
+    else:
+        report_type = None
+    
+    # exists or continuation
     if os.path.exists(pi.file_mp3):
         pi.sizesofar = os.stat(pi.file_mp3).st_size
         file_complete = (pi.sizesofar == pi.size)
@@ -209,40 +229,20 @@ for i in soup.findAll('item'):
             try:
                 urllib._urlopener = PodcastURLopener()
                 urllib._urlopener.addheader("Range", "bytes=%s-" % (pi.sizesofar))
-                if args.verbose > 1 and not args.silent:
-                    urllib.urlretrieve(pi.url, pi.file_temp, reporthook=reporthook)
-                else:
-                    urllib.urlretrieve(pi.url, pi.file_temp)
-                urllib._urlopener = urllib.FancyURLopener()
+                urllib.urlretrieve(pi.url, pi.file_temp, reporthook=report_type)
                 
-                fsrc = open(pi.file_temp)
-                fdst = open(pi.file_mp3, "a")
-                shutil.copyfileobj(fsrc, fdst)
-                fsrc.close()
-                fdst.close()
-                os.unlink(pi.file_temp)
-
+                urllib._urlopener = urllib.FancyURLopener()
+                appendThenRemove(pi.file_temp, pi.file_mp3)
             except urllib.ContentTooShortError:
-                log.warning("failed to retrieve {} ".format(pi.url))
-                if os.path.exists(pi.file_temp):
-                    log.debug("removing {}".format(pi.file_temp))
-                    os.unlink(pi.file_temp)
+                contentTooShortCleanup(pi.url, pi.file_temp)
                 continue
-
+    # first time download
     else:
         log.info("Downloading {}".format(pi.file_mp3))
         try:
-            # it takes some time for large files
-            if args.verbose:
-                urllib.urlretrieve(pi.url, pi.file_mp3, reporthook=reporthook)
-            else:
-                urllib.urlretrieve(pi.url, pi.file_mp3)
-
+            urllib.urlretrieve(pi.url, pi.file_mp3, reporthook=report_type)
         except urllib.ContentTooShortError:
-            log.warning("failed to retrieve {}".format(pi.url))
-            if os.path.exists(pi.file_mp3):
-                log.debug("removing {}".format(pi.file_mp3))
-                os.unlink(pi.file_mp3)
+            contentTooShortCleanup(pi.url, pi.file_mp3)
             continue
 
         log.debug("stored as {}".format(pi.file_mp3))
