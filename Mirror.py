@@ -151,8 +151,12 @@ class PodcastItem:
             f.write(BeautifulStoneSoup(self.description.string,
                                 convertEntities=
                                 BeautifulStoneSoup.HTML_ENTITIES).contents[0])
-        except TypeError:
-            f.write(self.description)
+        # AttributeError: 'unicode' object has no attribute 'string'
+        except (TypeError, AttributeError):
+            f.write(BeautifulStoneSoup(self.description,
+                                convertEntities=
+                                BeautifulStoneSoup.HTML_ENTITIES).contents[0])
+        f.close()
             
     def getsize(self, url=None):
         """Return Content-Length value for given URL. Follow redirs."""
