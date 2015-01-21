@@ -32,6 +32,8 @@ import shutil
 import argparse
 import logging
 import ConfigParser
+#
+import mp3
 
 
 class PodcastURLopener(urllib.FancyURLopener):
@@ -64,43 +66,6 @@ def reporthook(blocks_read, block_size, total_size):
         print '%d%%    \r' % (100*amount_read/total_size),
     return
 
-def getsize(url):
-    """Return Content-Length value for given URL. Follow redirs."""
-    o = urlparse(url)
-    conn = httplib.HTTPConnection(o.netloc)
-    conn.request("HEAD", o.path)
-    res = conn.getresponse()
-
-    # https://docs.python.org/2/library/httplib.html
-    statuses = (httplib.MOVED_PERMANENTLY, httplib.FOUND)
-    if res.status in statuses:
-        # print res.reason, ": ", res.getheader('location')
-        return getsize(res.getheader('location'))
-    elif res.status == httplib.OK:
-        # inne interesujace tagi: etag
-        return res.getheader('content-length')
-    else:
-        log.warn("getsize() UNKNOWN PROBLEM")
-        log.warn("{}: {} ".format(res.reason, res.getheader('location')))
-        log.warn(res.getheaders())
-        raise IOError
-
-def descwrite2file(pi):
-    """Write a description in a file for given podcast."""
-    f = codecs.open(pi.file_txt, encoding='utf-8', mode='w')
-    f.write(pi.name)
-    f.write("\n\n")
-    # enclosing in try-exception because of this error
-    # TypeError: coercing to Unicode: need string or buffer, Tag found
-    try:
-        # This is to decode &lt/&gt before writing it to the file
-        # BeautifulStoneSoup(items[1].description.string,
-        #       convertEntities=BeautifulStoneSoup.HTML_ENTITIES).contents[0]
-        f.write(BeautifulStoneSoup(i.description.string,
-                                convertEntities=
-                                BeautifulStoneSoup.HTML_ENTITIES).contents[0])
-    except TypeError:
-        f.write(pi.description)
 
 def initLog(log, args):
     """Initialize logging system"""
@@ -131,8 +96,9 @@ def appendThenRemove(src_name, dst_name):
     fdst.close()
     os.unlink(src_name);
     
-def contentTooShortCleanup(url, path):
-    """Cleanup after the exception"""
+def contentInvalidCleanup(url, path):
+    """Cleanup after the exception
+       Can be due to content to short or invalid MP3."""
     log.warning("failed to retrieve %s " % url)
     if os.path.exists(path):
         log.debug("removing %s" % path)
@@ -152,22 +118,100 @@ def initParser():
                         help="silent mode - suppress terminal output")
     return p.parse_args()
 
+
 class PodcastItem:
-    """ 
-        Parses and stores BeautifulSoup.Tag information.
-    """
+    """Parse and store BeautifulSoup.Tag information."""
+    
     def __init__(self, item):
         if type(item) is not Tag:
             return
-        self.name = item.title.string
+        self.name = item.title.string.strip()
         self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
-        self.description = item.description.string;
+        self.description = item.description.string.strip()
         self.file_mp3 = self.name + '.mp3'
         self.file_temp = self.name + '.mp3.part'
         self.file_txt = self.name + '.txt'
         self.url = item.find('media:content')['url']
+        self.file_name = os.path.basename(self.url)
         self.sizesofar = 0
         self.size = 0
+
+    def dump_description(self):
+        """Dump the podcast item description into a file"""
+        
+        f = codecs.open(self.file_txt, encoding='utf-8', mode='w')
+        f.write(self.name)
+        f.write("\n\n")
+        # enclosing in try-exception because of following exceptin
+        # TypeError: coercing to Unicode: need string or buffer, Tag found
+        try:
+            # This is to decode &lt/&gt before writing it to the file
+            # BeautifulStoneSoup(items[1].description.string,
+            #       convertEntities=BeautifulStoneSoup.HTML_ENTITIES).contents[0]
+            f.write(BeautifulStoneSoup(self.description.string,
+                                convertEntities=
+                                BeautifulStoneSoup.HTML_ENTITIES).contents[0])
+        except TypeError:
+            f.write(self.description)
+            
+    def getsize(self, url=None):
+        """Return Content-Length value for given URL. Follow redirs."""
+                    
+        o = urlparse(url or self.url)
+        conn = httplib.HTTPConnection(o.netloc)
+        conn.request("HEAD", o.path)
+        res = conn.getresponse()
+    
+        # https://docs.python.org/2/library/httplib.html
+        statuses = (httplib.MOVED_PERMANENTLY, httplib.FOUND)
+        if res.status in statuses:
+            # print res.reason, ": ", res.getheader('location')
+            return self.getsize(res.getheader('location'))
+        elif res.status == httplib.OK:
+            # inne interesujace tagi: etag
+            self.size = int(res.getheader('content-length'))
+            return self.size
+        else:
+            log.warn("getsize() UNKNOWN PROBLEM")
+            print "{}: {} ".format(res.reason, res.getheader('location'))
+            print res.getheaders()
+            raise IOError
+
+
+class Podcast:
+    """
+    Represents Podcast(url, days)
+        Allows itearating over podcasts.
+       
+    url - defines the podcast
+    days - how far in the past look behind
+       
+    channel
+        title
+        lastBuildDate
+        image
+            url
+        item
+            title
+            description
+            link
+            pubdate
+            
+    """
+    def __init__(self, url):
+        self.soup = BeautifulSoup(urllib2.urlopen(url))
+        self.podcasts = self.soup.findAll('item')
+        self.index = len(self.podcasts)
+        
+    def __iter__(self):
+        return self
+        
+    def next(self):
+        if self.index == 0:
+            raise StopIteration
+        self.index = self.index - 1
+        return PodcastItem(self.podcasts[self.index])
+
 
 # MAIN PROGRAM STARTS HERE
 
@@ -185,17 +229,13 @@ else:
     
 baseurl = config.get("RSS", "baseurl")
 
-current_page = urllib2.urlopen(baseurl)
-soup = BeautifulSoup(current_page)
-
 if not os.path.isdir(args.target):
     os.makedirs(args.target)
 log.debug("changing dir to {}".format(args.target))
 os.chdir(args.target)
 
-
-for i in soup.findAll('item'):
-    pi = PodcastItem(i)
+    
+for pi in Podcast(baseurl):
 
     podcast_age = datetime.datetime.now() - pi.date
     if podcast_age > datetime.timedelta(days=args.days):
@@ -204,11 +244,12 @@ for i in soup.findAll('item'):
 
     # czy plik w ogóle da się ściągnąć, iterujemy od początku jak nie
     try:
-        pi.size = int(getsize(pi.url))
+        pi.getsize()
     except (IOError, TypeError) as e:
+        print "IOError, TypeError %s" % e
         continue
     
-    if not os.path.exists(pi.file_txt): descwrite2file(pi)
+    if not os.path.exists(pi.file_txt): pi.dump_description()
 
     if args.verbose > 1 and not args.silent:
         report_type = reporthook
@@ -221,8 +262,13 @@ for i in soup.findAll('item'):
         file_complete = (pi.sizesofar == pi.size)
         
         if file_complete:
-            log.debug("Skipping {}".format(pi.file_mp3))
-            continue
+            if mp3.isMp3Valid(pi.file_mp3):
+                log.debug("Skipping {}".format(pi.file_mp3))
+                continue
+            else:
+                log.debug("%s is not a valid mp3 file" % pi.file_mp3)
+                contentInvalidCleanup(pi.url, pi.file_temp)
+                continue
         else:
             log.info("%s partially retrieved - resuming" % pi.file_mp3)
             log.debug("only {}<{} retrived".format(pi.sizesofar, pi.size))
@@ -234,7 +280,7 @@ for i in soup.findAll('item'):
                 urllib._urlopener = urllib.FancyURLopener()
                 appendThenRemove(pi.file_temp, pi.file_mp3)
             except urllib.ContentTooShortError:
-                contentTooShortCleanup(pi.url, pi.file_temp)
+                contentInvalidCleanup(pi.url, pi.file_temp)
                 continue
     # first time download
     else:
@@ -242,7 +288,7 @@ for i in soup.findAll('item'):
         try:
             urllib.urlretrieve(pi.url, pi.file_mp3, reporthook=report_type)
         except urllib.ContentTooShortError:
-            contentTooShortCleanup(pi.url, pi.file_mp3)
+            contentInvalidCleanup(pi.url, pi.file_mp3)
             continue
 
         log.debug("stored as {}".format(pi.file_mp3))
