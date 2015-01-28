@@ -99,7 +99,8 @@ def descwrite(i):
 
 """ MAIN PROGRAM STARTS HERE
 """
-baseurl = 'http://feeds.feedburner.com/zdzis?format=xml/'
+#baseurl = 'http://feeds.feedburner.com/zdzis?format=xml/'
+baseurl = 'http://feeds.feedburner.com/dailyaudiobible/'
 current_page = urllib2.urlopen(baseurl)
 
 #current_page = open('cache-soup.html')
@@ -108,7 +109,7 @@ soup = BeautifulSoup(current_page)
 # SAVING THE SOUP IN A FILE
 fs = open('cache-soup.html', 'w')
 fs.write(soup.prettify())
-# exit()
+exit()
 
 """
 c = soup.find('div', {'id':'story'})

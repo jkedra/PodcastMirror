@@ -18,6 +18,7 @@
 
 import os
 import sys
+import re
 import urllib2
 import urllib
 import httplib
@@ -126,8 +127,15 @@ class PodcastItem:
         if type(item) is not Tag:
             return
         self.name = item.title.string.strip()
+        
+        p = re.compile(r'(.*?)\s+(January|February|March|April|May|June|July|August|September|October|November|December).*')
+        self.myname = p.sub(r'\1', self.name)
         self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
         self.description = item.description.string.strip()
+        enclosure = item.find('media:content').find('feedburner:origenclosurelink').string.strip();
+        self.file_name = os.path.basename(enclosure)
+        (self.file_base, self.file_suffix) = os.path.splitext(self.file_name)
+        
         self.file_mp3 = self.name + '.mp3'
         self.file_temp = self.name + '.mp3.part'
         self.file_txt = self.name + '.txt'
@@ -238,6 +246,11 @@ if not os.path.isdir(args.target):
 log.debug("changing dir to {}".format(args.target))
 os.chdir(args.target)
 
+for pi in Podcast(baseurl):
+    print "myname:%s\n\tdate:%s\n\tfilename:%s\n\tbase:%s sufx:%s" % \
+        (pi.myname, pi.date, pi.file_name, pi.file_base, pi.file_suffix)
+    
+sys.exit()
     
 for pi in Podcast(baseurl):
 
