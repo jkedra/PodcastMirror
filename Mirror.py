@@ -132,15 +132,20 @@ class PodcastItem:
         self.myname = p.sub(r'\1', self.name)
         self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
         self.description = item.description.string.strip()
-        enclosure = item.find('media:content').find('feedburner:origenclosurelink').string.strip();
-        self.file_name = os.path.basename(enclosure)
-        (self.file_base, self.file_suffix) = os.path.splitext(self.file_name)
-        
-        self.file_mp3 = self.name + '.mp3'
-        self.file_temp = self.name + '.mp3.part'
-        self.file_txt = self.name + '.txt'
+        #self.url = item.find('media:content').find('feedburner:origenclosurelink').string.strip();
         self.url = item.find('media:content')['url']
-        self.file_name = os.path.basename(self.url)
+        self.remote_file_name = os.path.basename(self.url)
+        (self.file_base, self.file_suffix) = os.path.splitext(self.remote_file_name)
+        
+        ff = {'date':self.date,
+              'name':self.myname.replace(' ', ''),
+              'ext':self.file_suffix}
+              
+        self.file = '{date:%Y%m%d}_{name}'.format(**ff)
+        self.file_data = '{date:%Y%m%d}_{name}{ext}'.format(**ff)
+        self.file_temp = '{date:%Y%m%d}_{name}{ext}.part'.format(**ff)
+        self.file_txt = self.file + '.txt'
+        
         self.sizesofar = 0
         self.size = 0
 
@@ -211,9 +216,13 @@ class Podcast:
             
     """
     def __init__(self, url):
-        self.soup = BeautifulSoup(urllib2.urlopen(url))
-        self.podcasts = self.soup.findAll('item')
-        self.index = len(self.podcasts)
+        self.index = 0
+        try:
+            self.soup = BeautifulSoup(urllib2.urlopen(url))
+            self.podcasts = self.soup.findAll('item')
+            self.index = len(self.podcasts)
+        except (urllib2.URLError) as e:
+            print "%s" % e.value
         
     def __iter__(self):
         return self
@@ -246,17 +255,18 @@ if not os.path.isdir(args.target):
 log.debug("changing dir to {}".format(args.target))
 os.chdir(args.target)
 
-for pi in Podcast(baseurl):
-    print "myname:%s\n\tdate:%s\n\tfilename:%s\n\tbase:%s sufx:%s" % \
-        (pi.myname, pi.date, pi.file_name, pi.file_base, pi.file_suffix)
-    
-sys.exit()
+
+#for pi in Podcast(baseurl):
+#    print "myname:%s\n\tdate:%s\n\tfilename:%s\n\tbase:%s sufx:%s" % \
+#        (pi.myname, pi.date, pi.file_data, pi.file_base, pi.file_suffix)
+#    
+#sys.exit()
     
 for pi in Podcast(baseurl):
 
     podcast_age = datetime.datetime.now() - pi.date
     if podcast_age > datetime.timedelta(days=args.days):
-        log.debug("{} too old".format(pi.name, pi.date))
+        log.debug("{} {} too old".format(pi.name, pi.date))
         continue
 
     # czy plik w ogóle da się ściągnąć, iterujemy od początku jak nie
@@ -274,20 +284,20 @@ for pi in Podcast(baseurl):
         report_type = None
     
     # exists or continuation
-    if os.path.exists(pi.file_mp3):
-        pi.sizesofar = os.stat(pi.file_mp3).st_size
+    if os.path.exists(pi.file_data):
+        pi.sizesofar = os.stat(pi.file_data).st_size
         file_complete = (pi.sizesofar == pi.size)
         
         if file_complete:
-            if mp3.isMp3Valid(pi.file_mp3):
-                log.debug("Skipping {}".format(pi.file_mp3))
+            #if mp3.isMp3Valid(pi.file_mp3):
+                log.debug("Skipping {}".format(pi.file_data))
                 continue
-            else:
-                log.debug("%s is not a valid mp3 file" % pi.file_mp3)
-                contentInvalidCleanup(pi.url, pi.file_temp)
-                continue
+            #else:
+             #   log.debug("%s is not a valid mp3 file" % pi.file_mp3)
+             #   contentInvalidCleanup(pi.url, pi.file_temp)
+             #   continue
         else:
-            log.info("%s partially retrieved - resuming" % pi.file_mp3)
+            log.info("%s partially retrieved - resuming" % pi.file_data)
             log.debug("only {}<{} retrived".format(pi.sizesofar, pi.size))
             try:
                 urllib._urlopener = PodcastURLopener()
@@ -295,17 +305,17 @@ for pi in Podcast(baseurl):
                 urllib.urlretrieve(pi.url, pi.file_temp, reporthook=report_type)
                 
                 urllib._urlopener = urllib.FancyURLopener()
-                appendThenRemove(pi.file_temp, pi.file_mp3)
+                appendThenRemove(pi.file_temp, pi.file_data)
             except urllib.ContentTooShortError:
                 contentInvalidCleanup(pi.url, pi.file_temp)
                 continue
     # first time download
     else:
-        log.info("Downloading {}".format(pi.file_mp3))
+        log.info("Downloading {}".format(pi.file_data))
         try:
-            urllib.urlretrieve(pi.url, pi.file_mp3, reporthook=report_type)
+            urllib.urlretrieve(pi.url, pi.file_data, reporthook=report_type)
         except urllib.ContentTooShortError:
-            contentInvalidCleanup(pi.url, pi.file_mp3)
+            contentInvalidCleanup(pi.url, pi.file_data)
             continue
 
-        log.debug("stored as {}".format(pi.file_mp3))
+        log.debug("stored as {}".format(pi.file_data))
