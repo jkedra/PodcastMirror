@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 # vim:ts=4:expandtab
-# (c) Jerzy Kędra 2013-2014
+# (c) Jerzy Kędra 2015
 # Python 2.7
 """
 Created on Tue Feb  3 12:19:07 2015
-
 @author: Jerzy Kedra
 """
-
 import re
 import urllib2
 import urllib
@@ -40,9 +38,13 @@ def appendThenRemove(src_name, dst_name):
     fsrc.close()
     fdst.close()
     os.unlink(src_name);
-    
- 
-    
+
+def humanBytes(bytes):
+        if bytes < 1024*1024:
+            return '%dkB' % (bytes/1024)
+        elif bytes > 1024*1024:
+            return '%dMB' % (bytes/1024/1024)    
+       
 class PodcastItem:
     """ Parse and store BeautifulSoup.Tag information.
 
@@ -57,27 +59,33 @@ class PodcastItem:
             return
         self.log = logging.getLogger("__main__")
         self.name = item.title.string.strip()
-        
-        p = re.compile(r'(.*?)\s+(January|February|March|April|May|June|July|August|September|October|November|December).*')
-        self.myname = p.sub(r'\1', self.name)
-        self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
-        self.descr = item.description.string.strip()
         #self.url = item.find('media:content').find('feedburner:origenclosurelink').string.strip();
         self.url = item.find('media:content')['url']
+        self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
+        self.descr = item.description.string.strip()
+        
         self.remote_file_name = os.path.basename(self.url)
-        (self.file_base, self.file_suffix) = os.path.splitext(self.remote_file_name)
-        
-        ff = { 'date' : self.date,
-               'name' : self.myname.replace(' ', ''),
-               'ext'  : self.file_suffix }
-              
-        self.file = '{date:%Y%m%d}_{name}'.format(**ff)
-        self.file_data = '{date:%Y%m%d}_{name}{ext}'.format(**ff)
-        self.file_temp = self.file_data + '.part'
-        self.file_txt = self.file + '.txt'
-        
+        (self.remote_file_base, self.remote_file_suffix) = os.path.splitext(self.remote_file_name)      
+        self.initFileNamingScheme()
+
         self.size = 0
         self._sizesofar =  0
+
+    def initFileNamingScheme(self):
+        """Podcast File naming scheme
+        Transform current podcast file names or setup a brand new file name
+        for ongoing podcast files.
+        It is responsible for initialization of following fields:
+        1) myname (customized item name - where possible shall be
+                                          common for all items)
+        2) file (local file base for txt and audio)
+        """
+        
+        self.myname = self.name     
+        self.file = self.remote_file_base
+        self.file_data = self.remote_file_name
+        self.file_temp = self.file_data + '.part'
+        self.file_txt = self.file + '.txt'
 
     # self is the first argument because the reporthook function
     # is delievered to the xxx as self.reporthoook, so I presume
@@ -94,13 +102,8 @@ class PodcastItem:
             print ' Read %d blocks' % blocks_read
         else:
             amount_read = blocks_read * block_size + self._sizesofar
-            print ' Read ',
-            if amount_read < 1024*1024:
-                print '%dkB ' % (amount_read/1024),
-            elif amount_read > 1024*1024:
-                print '%dMB ' % (amount_read/1024/1024),
-    
-            print '%d%%    \r' % (100*amount_read/total_size),
+            print ' Read %s %d%%       \r' \
+                % (humanBytes(amount_read), 100*amount_read/total_size),
         return
     
     def download_description(self):
