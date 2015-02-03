@@ -30,11 +30,13 @@ class PodcastURLopener(urllib.FancyURLopener):
        partial file is being sent, which is ok in this case.
        Do nothing with this error.
     """
+    
     def http_error_206(self, url, fp, errcode, errmsg, headers, data=None):
         pass
 
 def reporthook(blocks_read, block_size, total_size):
-    """Progress printing, it is an argument to urlretrieve."""    
+    """Progress printing, it is an argument to urlretrieve."""
+    
     total_size = podsize
     
     if not blocks_read:
@@ -53,10 +55,9 @@ def reporthook(blocks_read, block_size, total_size):
         print '%d%%    \r' % (100*amount_read/total_size),
     return
 
-
-# returns size of the http object, follows redirs
 def getsize(url):
     """Returns Content-Length value for given URL. Follows redirs."""
+    
     o = urlparse(url)
     conn = httplib.HTTPConnection(o.netloc)
     conn.request("HEAD", o.path)
@@ -78,6 +79,7 @@ def getsize(url):
 
 def descwrite(i):
     """Writes a description in a file for given podcast."""
+    
     podname = i.title.string
     f = codecs.open(podftxt, encoding='utf-8', mode='w')
     
@@ -193,5 +195,3 @@ for i in soup.findAll('item'):
 
         print "stored as ", podfmp3
  
-
-
