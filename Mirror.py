@@ -29,7 +29,11 @@ import datetime
 #import mp3
 
 def initLog(log, args):
-    """Initialize logging system"""
+    """Initialize logging system
+    
+    :params log: logger object
+    :params args: argsparse.parse_args()
+    """
     log_levels = {None : logging.WARN,
                   1 : logging.INFO,
                   2 : logging.DEBUG}

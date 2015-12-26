@@ -13,7 +13,6 @@ import httplib
 import os
 import shutil
 from BeautifulSoup import BeautifulSoup, Tag, BeautifulStoneSoup
-#from datetime import datetime
 import codecs
 from urlparse import urlparse
 import email.utils as eut
@@ -114,7 +113,7 @@ class PodcastItem:
         f = codecs.open(self.file_txt, encoding='utf-8', mode='w')
         f.write(self.name)
         f.write("\n\n")
-        # enclosing in try-exception because of following exceptin
+        # enclosing in try-exception because of following exception
         # TypeError: coercing to Unicode: need string or buffer, Tag found
         try:
             # This is to decode &lt/&gt before writing it to the file
@@ -131,8 +130,12 @@ class PodcastItem:
         f.close()
             
     def getsize(self, url=None):
-        """Return Content-Length value for given URL. Follow redirs."""
-                    
+        """
+        Return Content-Length value for given URL. Follow redirs.
+        
+        :param url: http url
+        :returns: Size of object in bytes.
+        """
         o = urlparse(url or self.url)
         conn = httplib.HTTPConnection(o.netloc)
         conn.request("HEAD", o.path)
@@ -210,7 +213,7 @@ class PodcastItem:
 class Podcast:
     """
     Represents Podcast(url, days)
-        Allows itearating over podcasts.
+        Allows iterating over podcasts.
        
     url - defines the podcast
     days - how far in the past look behind
