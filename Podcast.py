@@ -6,7 +6,6 @@
 Created on Tue Feb  3 12:19:07 2015
 @author: Jerzy Kedra
 """
-import re
 import urllib2
 import urllib
 import httplib
@@ -24,9 +23,11 @@ class PodcastURLopener(urllib.FancyURLopener):
     """Create sub-class in order to overide error 206.
 
        The error means a partial file is being sent,
-       which is ok in this case. Do nothing with this error."""
+       which is ok in this case. Do nothing with this error.
+    """
     def http_error_206(self, url, fp, errcode, errmsg, headers, data=None):
         pass
+
 
 def appendThenRemove(src_name, dst_name):
     """Append to the end of destination and unlink the source"""
@@ -36,14 +37,16 @@ def appendThenRemove(src_name, dst_name):
     shutil.copyfileobj(fsrc, fdst)
     fsrc.close()
     fdst.close()
-    os.unlink(src_name);
+    os.unlink(src_name)
+
 
 def humanBytes(bytes):
         if bytes < 1024*1024:
             return '%dkB' % (bytes/1024)
         elif bytes > 1024*1024:
-            return '%dMB' % (bytes/1024/1024)    
-       
+            return '%dMB' % (bytes/1024/1024)
+
+
 class PodcastItem:
     """ Parse and store BeautifulSoup.Tag information.
 
@@ -51,24 +54,25 @@ class PodcastItem:
             url   - Item URL to download.
             name  - Original item name.
             date  - Item publication date.
-            descr - Item description."""   
-    
+            descr - Item description."""
+
     def __init__(self, item):
         if type(item) is not Tag:
             return
         self.log = logging.getLogger("__main__")
         self.name = item.title.string.strip()
-        #self.url = item.find('media:content').find('feedburner:origenclosurelink').string.strip();
+        # self.url = item.find('media:content').find(
+        #  'feedburner:origenclosurelink').string.strip();
         self.url = item.find('media:content')['url']
         self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
         self.descr = item.description.string.strip()
-        
+
         self.remote_file_name = os.path.basename(self.url)
-        (self.remote_file_base, self.remote_file_suffix) = os.path.splitext(self.remote_file_name)      
+        (self.remote_file_base, self.remote_file_suffix) = os.path.splitext(self.remote_file_name)
         self.initFileNamingScheme()
 
         self.size = 0
-        self._sizesofar =  0
+        self._sizesofar = 0
 
     def initFileNamingScheme(self):
         """Podcast File naming scheme
@@ -79,8 +83,8 @@ class PodcastItem:
                                           common for all items)
         2) file (local file base for txt and audio)
         """
-        
-        self.myname = self.name     
+
+        self.myname = self.name
         self.file = self.remote_file_base
         self.file_data = self.remote_file_name
         self.file_temp = self.file_data + '.part'
@@ -93,7 +97,7 @@ class PodcastItem:
     def reporthook(self, blocks_read, block_size, total_size):
         """Print progress. Used by urllib.urlretrieve."""
         total_size = self.size
-    
+
         if not blocks_read:
             return
         if total_size < 0:
@@ -104,12 +108,12 @@ class PodcastItem:
             print ' Read %s %d%%       \r' \
                 % (humanBytes(amount_read), 100*amount_read/total_size),
         return
-    
+
     def download_description(self):
-        """Dump the podcast item description into a file"""      
+        """Dump the podcast item description into a file"""
         if os.path.exists(self.file_txt):
             return
-            
+
         f = codecs.open(self.file_txt, encoding='utf-8', mode='w')
         f.write(self.name)
         f.write("\n\n")
@@ -128,11 +132,11 @@ class PodcastItem:
                                 convertEntities=
                                 BeautifulStoneSoup.HTML_ENTITIES).contents[0])
         f.close()
-            
+
     def getsize(self, url=None):
         """
         Return Content-Length value for given URL. Follow redirs.
-        
+
         :param url: http url
         :returns: Size of object in bytes.
         """
@@ -140,7 +144,7 @@ class PodcastItem:
         conn = httplib.HTTPConnection(o.netloc)
         conn.request("HEAD", o.path)
         res = conn.getresponse()
-    
+
         # https://docs.python.org/2/library/httplib.html
         statuses = (httplib.MOVED_PERMANENTLY, httplib.FOUND)
         if res.status in statuses:
@@ -162,23 +166,23 @@ class PodcastItem:
         self.log.warning("failed to retrieve %s " % url)
         if os.path.exists(path):
             self.log.debug("removing %s" % path)
-            os.unlink(path)   
-        
-    def download(self, verbose = False):
+            os.unlink(path)
+
+    def download(self, verbose=False):
         """Download Podcast Item"""
-        
+
         file_data = self.file_data
         size = self.size
         sizesofar = self._sizesofar
         url = self.url
         file_temp = self.file_temp
         l = self.log
-        
+
         if verbose:
             report_type = self.reporthook
         else:
             report_type = None
-        
+
         if os.path.exists(file_data):
             sizesofar = os.stat(file_data).st_size
             file_complete = (sizesofar == size)
@@ -192,7 +196,7 @@ class PodcastItem:
                     urllib._urlopener = PodcastURLopener()
                     urllib._urlopener.addheader("Range", "bytes=%s-" % (sizesofar))
                     urllib.urlretrieve(url, file_temp, reporthook=report_type)
-                
+
                     urllib._urlopener = urllib.FancyURLopener()
                     appendThenRemove(file_temp, file_data)
                 except urllib.ContentTooShortError:
@@ -208,17 +212,17 @@ class PodcastItem:
                 return
 
         l.debug("stored as {}".format(file_data))
-        
+
 
 class Podcast:
     """
     Represents Podcast(url, days)
         Allows iterating over podcasts.
-       
+
     url - defines the podcast
     days - how far in the past look behind
     soup - Beautiful Soup of the Podcast
-       
+
     channel
         title
         lastBuildDate
@@ -229,7 +233,7 @@ class Podcast:
             description
             link
             pubdate
-            
+
     """
     def __init__(self, url):
         self.index = 0
@@ -239,23 +243,25 @@ class Podcast:
             self.index = len(self.podcasts)
         except (urllib2.URLError) as e:
             print "%s" % e.value
-        
+
     def __iter__(self):
         return self
-        
+
     def next(self):
         if self.index == 0:
             raise StopIteration
         self.index = self.index - 1
         return PodcastItem(self.podcasts[self.index])
 
-# tests
-def testPodcast():        
+
+def testPodcast():
     return Podcast('http://feeds.feedburner.com/dailyaudiobible/')
-        
+
+
 def testPodcastItem():
     p = testPodcast()
     return p.Podcast.next()
+
 
 def testPodcastItems():
     for pi in testPodcast():
