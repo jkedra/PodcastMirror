@@ -20,9 +20,9 @@ class DABItem(PodcastItem):
                                           common for all items)
         2) file (local file base for txt and audio)
         """
-        
+
         p = re.compile(r'(.*?)\s+(January|February|March|April|May|June|July|August|September|October|November|December).*')
-        self.myname = p.sub(r'\1', self.name)     
+        self.myname = p.sub(r'\1', self.name)
         ff = { 'date' : self.date,
                'name' : self.myname.replace(' ', ''),
                'ext'  : self.remote_file_suffix }
@@ -34,8 +34,8 @@ class DABItem(PodcastItem):
 # TODO: below makes no sense - better deliver item class as a parameter
 class DAB(Podcast):
     """Use DABItem instead of PodcastItem
-    """    
-    
+    """
+
     def next(self):
         if self.index == 0:
             raise StopIteration

@@ -1,7 +1,7 @@
 *.log
 *.pyc
 *.html
-DATA
-DATA-zdzis
+DATA*
 tmp.py
 log.txt
+.ropeproject

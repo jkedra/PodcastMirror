@@ -1,5 +1,8 @@
-Ten projekt jest do mirrorowania podkastów.
+This is a project to mirror podcasts.
 
 Dependencies:
 apt-get install python-pip
 pip install BeautifulSoup
+
+# How to use?
+./Mirror.py
