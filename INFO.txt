@@ -2,7 +2,7 @@ This is a project to mirror podcasts.
 
 Dependencies:
 apt-get install python-pip
-pip install BeautifulSoup
+pip install bs4
 
 # How to use?
 ./Mirror.py

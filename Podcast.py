@@ -5,21 +5,22 @@
 """
 Created on Tue Feb  3 12:19:07 2015
 @author: Jerzy Kedra
+TODO: https://www.crummy.com/software/BeautifulSoup/bs4/doc/#method-names
 """
-import urllib2
-import urllib
-import httplib
+import urllib.request, urllib.error, urllib.parse
+import urllib.request, urllib.parse, urllib.error
+import http.client
 import os
 import shutil
-from BeautifulSoup import BeautifulSoup, Tag, BeautifulStoneSoup
+from bs4 import BeautifulSoup, Tag, BeautifulStoneSoup
 import codecs
-from urlparse import urlparse
+from urllib.parse import urlparse
 import email.utils as eut
 import datetime
 import logging
 
 
-class PodcastURLopener(urllib.FancyURLopener):
+class PodcastURLopener(urllib.request.FancyURLopener):
     """Create sub-class in order to overide error 206.
 
        The error means a partial file is being sent,
@@ -68,7 +69,8 @@ class PodcastItem:
         self.descr = item.description.string.strip()
 
         self.remote_file_name = os.path.basename(self.url)
-        (self.remote_file_base, self.remote_file_suffix) = os.path.splitext(self.remote_file_name)
+        (self.remote_file_base,
+         self.remote_file_suffix) = os.path.splitext(self.remote_file_name)
         self.initFileNamingScheme()
 
         self.size = 0
@@ -102,11 +104,12 @@ class PodcastItem:
             return
         if total_size < 0:
             # Unknown size
-            print ' Read %d blocks' % blocks_read
+            print(' Read %d blocks' % blocks_read)
         else:
             amount_read = blocks_read * block_size + self._sizesofar
-            print ' Read %s %d%%       \r' \
-                % (humanBytes(amount_read), 100*amount_read/total_size),
+            print(' Read %s %d%%       \r' %
+                  (humanBytes(amount_read), 100*amount_read/total_size),
+                  end=' ')
         return
 
     def download_description(self):
@@ -123,14 +126,14 @@ class PodcastItem:
             # This is to decode &lt/&gt before writing it to the file
             # BeautifulStoneSoup(items[1].description.string,
             #       convertEntities=BeautifulStoneSoup.HTML_ENTITIES).contents[0]
-            f.write(BeautifulStoneSoup(self.descr.string,
-                                convertEntities=
-                                BeautifulStoneSoup.HTML_ENTITIES).contents[0])
+            f.write(BeautifulSoup(self.descr.string,
+                                  convertEntities=BeautifulSoup.HTML_ENTITIES)
+                    .contents[0])
         # AttributeError: 'unicode' object has no attribute 'string'
         except (TypeError, AttributeError):
-            f.write(BeautifulStoneSoup(self.descr,
-                                convertEntities=
-                                BeautifulStoneSoup.HTML_ENTITIES).contents[0])
+            f.write(BeautifulSoup(self.descr,
+                                  convertEntities=BeautifulSoup.HTML_ENTITIES)
+                    .contents[0])
         f.close()
 
     def getsize(self, url=None):
@@ -141,23 +144,23 @@ class PodcastItem:
         :returns: Size of object in bytes.
         """
         o = urlparse(url or self.url)
-        conn = httplib.HTTPConnection(o.netloc)
+        conn = http.client.HTTPConnection(o.netloc)
         conn.request("HEAD", o.path)
         res = conn.getresponse()
 
         # https://docs.python.org/2/library/httplib.html
-        statuses = (httplib.MOVED_PERMANENTLY, httplib.FOUND)
+        statuses = (http.client.MOVED_PERMANENTLY, http.client.FOUND)
         if res.status in statuses:
             # print res.reason, ": ", res.getheader('location')
             return self.getsize(res.getheader('location'))
-        elif res.status == httplib.OK:
+        elif res.status == http.client.OK:
             # inne interesujace tagi: etag
             self.size = int(res.getheader('content-length'))
             return self.size
         else:
             self.log.warn("getsize() UNKNOWN PROBLEM")
-            print "{}: {} ".format(res.reason, res.getheader('location'))
-            print res.getheaders()
+            print("{}: {} ".format(res.reason, res.getheader('location')))
+            print(res.getheaders())
             raise IOError
 
     def contentInvalidCleanup(self, url, path):
@@ -177,6 +180,7 @@ class PodcastItem:
         url = self.url
         file_temp = self.file_temp
         l = self.log
+        r = urllib.request
 
         if verbose:
             report_type = self.reporthook
@@ -193,21 +197,20 @@ class PodcastItem:
                 l.info("%s partially retrieved - resuming" % file_data)
                 l.debug("only {}<{} retrived".format(sizesofar, size))
                 try:
-                    urllib._urlopener = PodcastURLopener()
-                    urllib._urlopener.addheader("Range", "bytes=%s-" % (sizesofar))
-                    urllib.urlretrieve(url, file_temp, reporthook=report_type)
-
-                    urllib._urlopener = urllib.FancyURLopener()
+                    r._urlopener = PodcastURLopener()
+                    r._urlopener.addheader("Range", "bytes=%s-" % (sizesofar))
+                    r.urlretrieve(url, file_temp, reporthook=report_type)
+                    r._urlopener = urllib.request.FancyURLopener()
                     appendThenRemove(file_temp, file_data)
-                except urllib.ContentTooShortError:
+                except urllib.error.ContentTooShortError:
                     self.contentInvalidCleanup(url, file_temp)
                     return
         # first time download
         else:
             l.info("Downloading {}".format(file_data))
             try:
-                urllib.urlretrieve(self.url, file_data, reporthook=report_type)
-            except urllib.ContentTooShortError:
+                r.urlretrieve(self.url, file_data, reporthook=report_type)
+            except urllib.error.ContentTooShortError:
                 self.contentInvalidCleanup(self.url, file_data)
                 return
 
@@ -238,16 +241,16 @@ class Podcast:
     def __init__(self, url):
         self.index = 0
         try:
-            self.soup = BeautifulSoup(urllib2.urlopen(url))
+            self.soup = BeautifulSoup(urllib.request.urlopen(url), 'lxml')
             self.podcasts = self.soup.findAll('item')
             self.index = len(self.podcasts)
-        except (urllib2.URLError) as e:
-            print "%s" % e.value
+        except (urllib.error.URLError) as e:
+            print("%s" % e.value)
 
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         if self.index == 0:
             raise StopIteration
         self.index = self.index - 1
@@ -260,10 +263,10 @@ def testPodcast():
 
 def testPodcastItem():
     p = testPodcast()
-    return p.Podcast.next()
+    return next(p.Podcast)
 
 
 def testPodcastItems():
     for pi in testPodcast():
-        print "myname:%s\n\tdate:%s\n\tfilename:%s\n\tbase:%s sufx:%s" % \
-            (pi.myname, pi.date, pi.file_data, pi.file_base, pi.file_suffix)
+        print("myname:%s\n\tdate:%s\n\tfilename:%s\n\tbase:%s sufx:%s" % \
+            (pi.myname, pi.date, pi.file_data, pi.file_base, pi.file_suffix))

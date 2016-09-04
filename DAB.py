@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # vim:ts=4:expandtab
-# (c) Jerzy Kędra 2015
-# Python 2.7
+# (c) Jerzy Kędra 2015-2016
+# Python 3.5
 """
 Created on Tue Feb  3 19:04:35 2015
 @author: acer
@@ -36,7 +36,7 @@ class DAB(Podcast):
     """Use DABItem instead of PodcastItem
     """
 
-    def next(self):
+    def __next__(self):
         if self.index == 0:
             raise StopIteration
         self.index = self.index - 1
