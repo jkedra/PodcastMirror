@@ -1,8 +1,8 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # vim:ts=4:expandtab
 # (c) Jerzy Kędra 2013-2016
-# Python 2.7
+# Python 3.5
 """ Mirror.py : Mirror a podcast to local resource.
     This script is intendent to be run daily from cron,
     and copy incoming podcasts into a local directory.
@@ -22,7 +22,7 @@ import sys
 #
 import argparse
 import logging
-import ConfigParser
+import configparser
 from DAB import DAB
 import datetime
 #
@@ -81,7 +81,7 @@ args = initParser()
 log = logging.getLogger(__name__)
 initLog(log, args)
 
-config = ConfigParser.ConfigParser()
+config = configparser.ConfigParser()
 cf = config.read(['mirror.cfg', os.path.expanduser('~/.mirror.cfg')])
 if len(cf) == 0:
     print("config file not found")
@@ -106,9 +106,9 @@ for pi in DAB(baseurl):
     try:
         pi.getsize()
     except (IOError, TypeError) as e:
-        print("IOError, TypeError %s" % e)
+        print(("IOError, TypeError %s" % e))
         continue
 
-    verbose = args.verbose > 1 and not args.silent
+    verbose = args.verbose and args.verbose > 1 and not args.silent
     pi.download_description()
     pi.download(verbose)
