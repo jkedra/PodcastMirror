@@ -12,7 +12,7 @@ import urllib.request, urllib.parse, urllib.error
 import http.client
 import os
 import shutil
-from bs4 import BeautifulSoup, Tag, BeautifulStoneSoup
+from bs4 import BeautifulSoup, Tag
 import codecs
 from urllib.parse import urlparse
 import email.utils as eut
@@ -60,6 +60,7 @@ class PodcastItem:
     def __init__(self, item):
         if type(item) is not Tag:
             return
+        self.item = item
         self.log = logging.getLogger("__main__")
         self.name = item.title.string.strip()
         # self.url = item.find('media:content').find(
@@ -75,6 +76,9 @@ class PodcastItem:
 
         self.size = 0
         self._sizesofar = 0
+
+    def __repr__(self):
+        return "{}('{}')".format(self.__class__.__name__, self.item)
 
     def initFileNamingScheme(self):
         """Podcast File naming scheme
@@ -126,14 +130,10 @@ class PodcastItem:
             # This is to decode &lt/&gt before writing it to the file
             # BeautifulStoneSoup(items[1].description.string,
             #       convertEntities=BeautifulStoneSoup.HTML_ENTITIES).contents[0]
-            f.write(BeautifulSoup(self.descr.string,
-                                  convertEntities=BeautifulSoup.HTML_ENTITIES)
-                    .contents[0])
+            f.write(BeautifulSoup(self.descr.string, 'lxml').contents[0])
         # AttributeError: 'unicode' object has no attribute 'string'
         except (TypeError, AttributeError):
-            f.write(BeautifulSoup(self.descr,
-                                  convertEntities=BeautifulSoup.HTML_ENTITIES)
-                    .contents[0])
+            f.write(BeautifulSoup(self.descr, 'lxml').contents[0])
         f.close()
 
     def getsize(self, url=None):
@@ -222,7 +222,7 @@ class Podcast:
     Represents Podcast(url, days)
         Allows iterating over podcasts.
 
-    url - defines the podcast
+    url - source of the podcast
     days - how far in the past look behind
     soup - Beautiful Soup of the Podcast
 
@@ -240,6 +240,7 @@ class Podcast:
     """
     def __init__(self, url):
         self.index = 0
+        self.url = url
         try:
             self.soup = BeautifulSoup(urllib.request.urlopen(url), 'lxml')
             self.podcasts = self.soup.findAll('item')
@@ -256,6 +257,9 @@ class Podcast:
         self.index = self.index - 1
         return PodcastItem(self.podcasts[self.index])
 
+    def __repr__(self):
+        return "{}('{}')".format(self.__class__.__name__, self.url)
+
 
 def testPodcast():
     return Podcast('http://feeds.feedburner.com/dailyaudiobible/')
@@ -263,7 +267,7 @@ def testPodcast():
 
 def testPodcastItem():
     p = testPodcast()
-    return next(p.Podcast)
+    return next(p)
 
 
 def testPodcastItems():
