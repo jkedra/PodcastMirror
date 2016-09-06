@@ -120,20 +120,10 @@ class PodcastItem:
         """Dump the podcast item description into a file"""
         if os.path.exists(self.file_txt):
             return
-
+        descr = "{}\n{}\n".format(self.name,
+                      BeautifulSoup(self.descr, 'lxml').contents[0].get_text())
         f = codecs.open(self.file_txt, encoding='utf-8', mode='w')
-        f.write(self.name)
-        f.write("\n\n")
-        # enclosing in try-exception because of following exception
-        # TypeError: coercing to Unicode: need string or buffer, Tag found
-        try:
-            # This is to decode &lt/&gt before writing it to the file
-            # BeautifulStoneSoup(items[1].description.string,
-            #       convertEntities=BeautifulStoneSoup.HTML_ENTITIES).contents[0]
-            f.write(BeautifulSoup(self.descr.string, 'lxml').contents[0])
-        # AttributeError: 'unicode' object has no attribute 'string'
-        except (TypeError, AttributeError):
-            f.write(BeautifulSoup(self.descr, 'lxml').contents[0])
+        f.write(descr)
         f.close()
 
     def getsize(self, url=None):
