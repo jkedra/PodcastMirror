@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 # vim:ts=4:expandtab
-# (c) Jerzy Kędra 2015
+# (c) Jerzy Kędra 2015-2016
 # Python 2.7
 """
 Created on Tue Feb  3 12:19:07 2015
-@author: Jerzy Kedra
-TODO: https://www.crummy.com/software/BeautifulSoup/bs4/doc/#method-names
+@author: Jerzy Kędra
 """
+# TODO: https://www.crummy.com/software/BeautifulSoup/bs4/doc/#method-names
 import urllib.request, urllib.error, urllib.parse
 import urllib.request, urllib.parse, urllib.error
 import http.client
@@ -21,17 +21,17 @@ import logging
 
 
 class PodcastURLopener(urllib.request.FancyURLopener):
-    """Create sub-class in order to overide error 206.
+    """This is just FancyURLopener with an overriden sub-class for error 206.
 
        The error means a partial file is being sent,
-       which is ok in this case. Do nothing with this error.
+       which is ok in this case - so silently ignore the error.
     """
     def http_error_206(self, url, fp, errcode, errmsg, headers, data=None):
         pass
 
 
 def appendThenRemove(src_name, dst_name):
-    """Append to the end of destination and unlink the source"""
+    """Append to the end of destination and unlink the source."""
 
     fsrc = open(src_name)
     fdst = open(dst_name, "a")
@@ -51,11 +51,14 @@ def humanBytes(bytes):
 class PodcastItem:
     """ Parse and store BeautifulSoup.Tag information.
 
-        Fields:
-            url   - Item URL to download.
-            name  - Original item name.
-            date  - Item publication date.
-            descr - Item description."""
+    Fields:
+        url   - Item URL to download.
+        name  - Original item name.
+        date  - Item publication date.
+        descr - Item description.
+
+    You might need to override initFileNamingScheme method.
+    """
 
     def __init__(self, item):
         if type(item) is not Tag:
@@ -72,38 +75,46 @@ class PodcastItem:
         self.remote_file_name = os.path.basename(self.url)
         (self.remote_file_base,
          self.remote_file_suffix) = os.path.splitext(self.remote_file_name)
-        self.initFileNamingScheme()
+
 
         self.size = 0
         self._sizesofar = 0
+
+        # initialized by initFileNamingScheme
+        self.myname = None
+        self.file = None
+        self.file_data = None
+        self.file_temp = None
+        self.file_txt = None
+        self.initFileNamingScheme()
 
     def __repr__(self):
         return "{}('{}')".format(self.__class__.__name__, self.item)
 
     def initFileNamingScheme(self):
-        """Podcast File naming scheme
-        Transform current podcast file names or setup a brand new file name
-        for ongoing podcast files.
-        It is responsible for initialization of following fields:
-        1) myname (customized item name - where possible shall be
-                                          common for all items)
-        2) file (local file base for txt and audio)
-        """
+        """Podcast File Naming Scheme
 
+        Transform current podcast file names or setup a brand new file name
+        for ongoing podcast files. This method should be overridden later
+        in a subclass. When overriding this method you are responsible
+        for initialization of all "file" fields mentioned below.
+
+        It is responsible for initialization of following fields:
+        :myname: customized item name - shall be common for all items)
+        :file:   local file basename (no suffix) for txt and audio
+        :file_data: filename for storing media
+        :file_temp: filename for storing temporary media file
+        :file_txt: filename for storing text description for matching media
+        """
         self.myname = self.name
         self.file = self.remote_file_base
         self.file_data = self.remote_file_name
         self.file_temp = self.file_data + '.part'
         self.file_txt = self.file + '.txt'
 
-    # self is the first argument because the reporthook function
-    # is delievered to the xxx as self.reporthoook, so I presume
-    # it is wound in as reporthook(blocks_read, block_size, total_size)
-    # Thats why I'm able to have it defined as a class method.
     def reporthook(self, blocks_read, block_size, total_size):
         """Print progress. Used by urllib.urlretrieve."""
         total_size = self.size
-
         if not blocks_read:
             return
         if total_size < 0:
@@ -117,18 +128,17 @@ class PodcastItem:
         return
 
     def download_description(self):
-        """Dump the podcast item description into a file"""
+        """Dump the podcast item description into a file."""
         if os.path.exists(self.file_txt):
             return
-        descr = "{}\n{}\n".format(self.name,
-                      BeautifulSoup(self.descr, 'lxml').contents[0].get_text())
+        bf = BeautifulSoup(self.descr, 'lxml').contents[0].get_text()
+        descr = "{}\n{}\n".format(self.name, bf)
         f = codecs.open(self.file_txt, encoding='utf-8', mode='w')
         f.write(descr)
         f.close()
 
     def getsize(self, url=None):
-        """
-        Return Content-Length value for given URL. Follow redirs.
+        """Return Content-Length value for given URL. Follow redirs.
 
         :param url: http url
         :returns: Size of object in bytes.
@@ -154,8 +164,9 @@ class PodcastItem:
             raise IOError
 
     def contentInvalidCleanup(self, url, path):
-        """Cleanup after the exception
-           Can be due to content to short or invalid MP3."""
+        """Cleanup after the exception.
+
+        Can be due to content to short or invalid MP3."""
         self.log.warning("failed to retrieve %s " % url)
         if os.path.exists(path):
             self.log.debug("removing %s" % path)
@@ -208,9 +219,7 @@ class PodcastItem:
 
 
 class Podcast:
-    """
-    Represents Podcast(url, days)
-        Allows iterating over podcasts.
+    """Represents Podcast(url, days). Allows iterating over podcasts.
 
     url - source of the podcast
     days - how far in the past look behind
@@ -235,7 +244,7 @@ class Podcast:
             self.soup = BeautifulSoup(urllib.request.urlopen(url), 'lxml')
             self.podcasts = self.soup.findAll('item')
             self.index = len(self.podcasts)
-        except (urllib.error.URLError) as e:
+        except urllib.error.URLError as e:
             print("%s" % e.value)
 
     def __iter__(self):
@@ -244,7 +253,7 @@ class Podcast:
     def __next__(self):
         if self.index == 0:
             raise StopIteration
-        self.index = self.index - 1
+        self.index -= 1
         return PodcastItem(self.podcasts[self.index])
 
     def __repr__(self):
@@ -264,3 +273,4 @@ def testPodcastItems():
     for pi in testPodcast():
         print("myname:%s\n\tdate:%s\n\tfilename:%s\n\tbase:%s sufx:%s" % \
             (pi.myname, pi.date, pi.file_data, pi.file_base, pi.file_suffix))
+
