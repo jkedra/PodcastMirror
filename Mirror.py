@@ -4,14 +4,14 @@
 # (c) Jerzy Kędra 2013-2016
 # Python 3.5
 """ Mirror.py : Mirror a podcast to local resource.
-    This script is intendent to be run daily from cron,
+    This script is intended to be run daily from cron,
     and copy incoming podcasts into a local directory.
-    Primarily designed to mirror Daily Audio Biblle podcasts,
+    Primarily designed to mirror Daily Audio Bible podcasts,
     after I have got caught with missing podcasts with end of
-    the year, when Brian Hardin (the podcast's autor) removed the old
+    the year, when Brian Hardin (the podcast's author) removed the old
     podcasts and started a new yearly cycle.
     Default config: mirror.cfg
-    Config properites:
+    Config properties:
 
     TODO: limit max nr of podcasts downloaded in one pass.
 """
