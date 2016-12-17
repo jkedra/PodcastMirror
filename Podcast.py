@@ -21,7 +21,7 @@ import logging
 
 
 class PodcastURLopener(urllib.request.FancyURLopener):
-    """This is just FancyURLopener with an overriden sub-class for error 206.
+    """This is just FancyURLopener with an overridden sub-class for error 206.
 
        The error means a partial file is being sent,
        which is ok in this case - so silently ignore the error.
@@ -32,14 +32,12 @@ class PodcastURLopener(urllib.request.FancyURLopener):
 
 def appendThenRemove(src_name, dst_name):
     """Append to the end of destination and unlink the source."""
-
     fsrc = open(src_name, 'rb')
     fdst = open(dst_name, 'ab')
     shutil.copyfileobj(fsrc, fdst)
     fsrc.close()
     fdst.close()
     os.unlink(src_name)
-
 
 def humanBytes(bytes):
         if bytes < 1024*1024:
@@ -76,9 +74,9 @@ class PodcastItem:
         (self.remote_file_base,
          self.remote_file_suffix) = os.path.splitext(self.remote_file_name)
 
-
         self.size = 0
         self._sizesofar = 0
+        self._verbose = False    # helper used in self.download
 
         # initialized by initFileNamingScheme
         self.myname = None
@@ -114,6 +112,10 @@ class PodcastItem:
 
     def reporthook(self, blocks_read, block_size, total_size):
         """Print progress. Used by urllib.urlretrieve."""
+
+        if not self._verbose:
+            return
+
         total_size = self.size
         if not blocks_read:
             return
@@ -165,56 +167,89 @@ class PodcastItem:
     def content_cleanup(self, path, url=None):
         """Cleanup after the exception.
 
-        Can be due to content to short or invalid MP3."""
+        Can be due to content to short or invalid MP3.
+        """
         if url:
             self.log.warning("failed to retrieve %s " % url)
         if os.path.exists(path):
             self.log.debug("removing %s" % path)
             os.unlink(path)
 
-    def download(self, verbose=False):
-        """Download Podcast Item"""
-
-        file_data = self.file_data
+    def _file_complete(self):
         size = self.size
-        sizesofar = self._sizesofar
+        if os.path.exists(self.file_data):
+            sizesofar = os.stat(self.file_data).st_size
+            return sizesofar == size
+
+    def download_full(self):
+        """Download the complete file from the beginning.
+
+        Erase if the file exists.
+        Return True on success, False otherwise.
+        """
+        l = self.log
+        file_data = self.file_data
+        retrieve = urllib.request.urlretrieve
+
+        self.content_cleanup(self.file_data)
+        self.content_cleanup(self.file_temp)
+
+        l.info("Downloading {}".format(file_data))
+        try:
+            retrieve(self.url, file_data, reporthook=self.reporthook)
+            return True
+        except urllib.error.ContentTooShortError:
+            self.content_cleanup(file_data, self.url)
+            # do not cleanup - will be continued later
+            l.info("Failed downloading {}".format(file_data))
+            return False
+
+    def download_continue(self):
+        l = self.log
+        file_data = self.file_data
         url = self.url
         file_temp = self.file_temp
-        l = self.log
+        sizesofar = os.stat(file_data).st_size
+        size = self.size
         r = urllib.request
 
-        if verbose:
-            report_type = self.reporthook
-        else:
-            report_type = None
+        l.info("%s partially retrieved - resuming" % file_data)
+        l.debug("only {:d}<{:d} received".format(sizesofar, size))
+        try:
+            r._urlopener = PodcastURLopener()
+            r._urlopener.addheader("Range", "bytes=%s-" % (sizesofar))
+            r.urlretrieve(url, file_temp, reporthook=self.reporthook)
+            r._urlopener = urllib.request.FancyURLopener()
+            appendThenRemove(file_temp, file_data)
+            return True
+        except urllib.error.ContentTooShortError:
+            self.content_cleanup(file_temp, url)
+            return False
+
+    # noinspection PyUnresolvedReferences
+    def download(self, verbose=False):
+        """Download Podcast Item.
+
+        Handles download continuation.
+        Handles file inconsistencies.
+        """
+        self._verbose = verbose
+        file_data = self.file_data
+        size = self.size
+        l = self.log
 
         if os.path.exists(file_data):
             sizesofar = os.stat(file_data).st_size
-            file_complete = (sizesofar == size)
-            if file_complete:
+            if self._file_complete():
                 l.debug("Skipping {}".format(file_data))
                 return
+            elif sizesofar < size:
+                self.download_continue()
             else:
-                # TODO: handle a situation where there is more downloaded then required
-                l.info("%s partially retrieved - resuming" % file_data)
-                l.debug("only {:d}<{:d} retrived".format(sizesofar, size))
-                try:
-                    r._urlopener = PodcastURLopener()
-                    r._urlopener.addheader("Range", "bytes=%s-" % (sizesofar))
-                    r.urlretrieve(url, file_temp, reporthook=report_type)
-                    r._urlopener = urllib.request.FancyURLopener()
-                    appendThenRemove(file_temp, file_data)
-                except urllib.error.ContentTooShortError:
-                    self.content_cleanup(file_temp, url)
-                    return
-        # first time download
+                self.download_full()
         else:
-            l.info("Downloading {}".format(file_data))
-            try:
-                r.urlretrieve(self.url, file_data, reporthook=report_type)
-            except urllib.error.ContentTooShortError:
-                self.content_cleanup(file_data, self.url)
-                return
+            # first time download
+            self.download_full()
 
         l.debug("stored as {}".format(file_data))
 
