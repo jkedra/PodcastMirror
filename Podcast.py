@@ -33,8 +33,8 @@ class PodcastURLopener(urllib.request.FancyURLopener):
 def appendThenRemove(src_name, dst_name):
     """Append to the end of destination and unlink the source."""
 
-    fsrc = open(src_name)
-    fdst = open(dst_name, "a")
+    fsrc = open(src_name, 'rb')
+    fdst = open(dst_name, 'ab')
     shutil.copyfileobj(fsrc, fdst)
     fsrc.close()
     fdst.close()
@@ -133,9 +133,8 @@ class PodcastItem:
             return
         bf = BeautifulSoup(self.descr, 'lxml').contents[0].get_text()
         descr = "{}\n{}\n".format(self.name, bf)
-        f = codecs.open(self.file_txt, encoding='utf-8', mode='w')
-        f.write(descr)
-        f.close()
+        with open(self.file_txt, mode="w") as f:
+            f.write(descr)
 
     def getsize(self, url=None):
         """Return Content-Length value for given URL. Follow redirs.
@@ -163,11 +162,12 @@ class PodcastItem:
             print(res.getheaders())
             raise IOError
 
-    def contentInvalidCleanup(self, url, path):
+    def content_cleanup(self, path, url=None):
         """Cleanup after the exception.
 
         Can be due to content to short or invalid MP3."""
-        self.log.warning("failed to retrieve %s " % url)
+        if url:
+            self.log.warning("failed to retrieve %s " % url)
         if os.path.exists(path):
             self.log.debug("removing %s" % path)
             os.unlink(path)
@@ -195,8 +195,9 @@ class PodcastItem:
                 l.debug("Skipping {}".format(file_data))
                 return
             else:
+                # TODO: handle a situation where there is more downloaded then required
                 l.info("%s partially retrieved - resuming" % file_data)
-                l.debug("only {}<{} retrived".format(sizesofar, size))
+                l.debug("only {:d}<{:d} retrived".format(sizesofar, size))
                 try:
                     r._urlopener = PodcastURLopener()
                     r._urlopener.addheader("Range", "bytes=%s-" % (sizesofar))
@@ -204,7 +205,7 @@ class PodcastItem:
                     r._urlopener = urllib.request.FancyURLopener()
                     appendThenRemove(file_temp, file_data)
                 except urllib.error.ContentTooShortError:
-                    self.contentInvalidCleanup(url, file_temp)
+                    self.content_cleanup(file_temp, url)
                     return
         # first time download
         else:
@@ -212,7 +213,7 @@ class PodcastItem:
             try:
                 r.urlretrieve(self.url, file_data, reporthook=report_type)
             except urllib.error.ContentTooShortError:
-                self.contentInvalidCleanup(self.url, file_data)
+                self.content_cleanup(file_data, self.url)
                 return
 
         l.debug("stored as {}".format(file_data))
