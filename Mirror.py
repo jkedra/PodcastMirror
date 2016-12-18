@@ -23,7 +23,8 @@ import sys
 import argparse
 import logging
 import configparser
-from DAB import DAB
+from DAB import DABItem
+from Podcast import Podcast
 import datetime
 #
 # import mp3
@@ -96,7 +97,7 @@ if not os.path.isdir(args.target):
 log.debug("changing dir to {}".format(args.target))
 os.chdir(args.target)
 
-for pi in DAB(baseurl):
+for pi in Podcast(baseurl, DABItem):
     podcast_age = datetime.datetime.now() - pi.date
     if podcast_age > datetime.timedelta(days=args.days):
         log.debug("{} {} too old".format(pi.name, pi.date))

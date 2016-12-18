@@ -272,15 +272,16 @@ class Podcast:
             pubdate
 
     """
-    def __init__(self, url):
+    def __init__(self, url, podcastitem_cls=PodcastItem):
         self.index = 0
         self.url = url
+        self._pi_cls = podcastitem_cls
         try:
             self.soup = BeautifulSoup(urllib.request.urlopen(url), 'lxml')
             self.podcasts = self.soup.findAll('item')
             self.index = len(self.podcasts)
         except urllib.error.URLError as e:
-            print("%s" % e.value)
+            print("%s" % e.strerror)
 
     def __iter__(self):
         return self
@@ -289,7 +290,7 @@ class Podcast:
         if self.index == 0:
             raise StopIteration
         self.index -= 1
-        return PodcastItem(self.podcasts[self.index])
+        return self._pi_cls(self.podcasts[self.index])
 
     def __repr__(self):
         return "{}('{}')".format(self.__class__.__name__, self.url)

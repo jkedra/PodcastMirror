@@ -30,13 +30,3 @@ class DABItem(PodcastItem):
         self.file_temp = self.file_data + '.part'
         self.file_txt = self.file + '.txt'
 
-
-# TODO: below makes no sense - better deliver item class as a parameter
-class DAB(Podcast):
-    """Use DABItem instead of PodcastItem
-    """
-    def __next__(self):
-        if self.index == 0:
-            raise StopIteration
-        self.index = self.index - 1
-        return DABItem(self.podcasts[self.index])
