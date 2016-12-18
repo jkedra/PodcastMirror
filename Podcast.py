@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # vim:ts=4:expandtab
-# (c) Jerzy Kędra 2015-2016
-# Python 2.7
+
 """
+(c) Jerzy Kędra 2015-2016
+Python 3.5
 Created on Tue Feb  3 12:19:07 2015
-@author: Jerzy Kędra
 """
 # TODO: https://www.crummy.com/software/BeautifulSoup/bs4/doc/#method-names
 import urllib.request, urllib.error, urllib.parse
@@ -13,7 +13,6 @@ import http.client
 import os
 import shutil
 from bs4 import BeautifulSoup, Tag
-import codecs
 from urllib.parse import urlparse
 import email.utils as eut
 import datetime
@@ -159,7 +158,7 @@ class PodcastItem:
             self.size = int(res.getheader('content-length'))
             return self.size
         else:
-            self.log.warn("getsize() UNKNOWN PROBLEM")
+            self.log.warning("getsize() UNKNOWN PROBLEM")
             print("{}: {} ".format(res.reason, res.getheader('location')))
             print(res.getheaders())
             raise IOError
