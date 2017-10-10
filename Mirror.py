@@ -4,6 +4,7 @@
 # (c) Jerzy Kędra 2013-2016
 # Python 3.5
 """ Mirror.py : Mirror a podcast to local resource.
+
     This script is intended to be run daily from cron,
     and copy incoming podcasts into a local directory.
     Primarily designed to mirror Daily Audio Bible podcasts,
@@ -91,11 +92,12 @@ else:
     log.debug("config file %s" % str(cf))
 
 baseurl = config.get("RSS", "baseurl")
+target_dir = config.get("Mirror", "data") or args.target
 
-if not os.path.isdir(args.target):
-    os.makedirs(args.target)
-log.debug("changing dir to {}".format(args.target))
-os.chdir(args.target)
+if not os.path.isdir(target_dir):
+    os.makedirs(target_dir)
+log.debug("changing dir to {}".format(target_dir))
+os.chdir(target_dir)
 
 for pi in Podcast(baseurl, DABItem):
     podcast_age = datetime.datetime.now() - pi.date

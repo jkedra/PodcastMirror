@@ -7,16 +7,18 @@ Python 3.5
 Created on Tue Feb  3 12:19:07 2015
 """
 # TODO: https://www.crummy.com/software/BeautifulSoup/bs4/doc/#method-names
-import urllib.request, urllib.error, urllib.parse
-import urllib.request, urllib.parse, urllib.error
+import datetime
+import email.utils as eut
 import http.client
+import logging
 import os
 import shutil
-from bs4 import BeautifulSoup, Tag
+import urllib.error
+import urllib.parse
+import urllib.request
 from urllib.parse import urlparse
-import email.utils as eut
-import datetime
-import logging
+
+from bs4 import BeautifulSoup, Tag
 
 
 class PodcastURLopener(urllib.request.FancyURLopener):
@@ -152,6 +154,7 @@ class PodcastItem:
         statuses = (http.client.MOVED_PERMANENTLY, http.client.FOUND)
         if res.status in statuses:
             # print res.reason, ": ", res.getheader('location')
+            # recurrent!
             return self.getsize(res.getheader('location'))
         elif res.status == http.client.OK:
             # inne interesujace tagi: etag
@@ -163,10 +166,10 @@ class PodcastItem:
             print(res.getheaders())
             raise IOError
 
-    def content_cleanup(self, path, url=None):
-        """Cleanup after the exception.
+    def remove_file(self, path, url=None):
+        """Cleanup (unlink path) after an exception.
 
-        Can be due to content to short or invalid MP3.
+        Can be due to content too short or invalid MP3.
         """
         if url:
             self.log.warning("failed to retrieve %s " % url)
@@ -190,15 +193,15 @@ class PodcastItem:
         file_data = self.file_data
         retrieve = urllib.request.urlretrieve
 
-        self.content_cleanup(self.file_data)
-        self.content_cleanup(self.file_temp)
+        self.remove_file(self.file_data)
+        self.remove_file(self.file_temp)
 
         l.info("Downloading {}".format(file_data))
         try:
             retrieve(self.url, file_data, reporthook=self.reporthook)
             return True
         except urllib.error.ContentTooShortError:
-            self.content_cleanup(file_data, self.url)
+            self.remove_file(file_data, self.url)
             # do not cleanup - will be continued later
             l.info("Failed downloading {}".format(file_data))
             return False
@@ -222,7 +225,7 @@ class PodcastItem:
             appendThenRemove(file_temp, file_data)
             return True
         except urllib.error.ContentTooShortError:
-            self.content_cleanup(file_temp, url)
+            self.remove_file(file_temp, url)
             return False
 
     # noinspection PyUnresolvedReferences
@@ -243,14 +246,15 @@ class PodcastItem:
                 l.debug("Skipping {}".format(file_data))
                 return
             elif sizesofar < size:
-                self.download_continue()
+                succeed = self.download_continue()
             else:
-                self.download_full()
+                succeed = self.download_full()
         else:
             # first time download
-            self.download_full()
+            succeed = self.download_full()
 
-        l.debug("stored as {}".format(file_data))
+        if succeed:
+            l.debug("stored as {}".format(file_data))
 
 
 class Podcast:
