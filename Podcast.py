@@ -25,7 +25,7 @@ class PodcastURLopener(urllib.request.FancyURLopener):
     """This is just FancyURLopener with an overridden sub-class for error 206.
 
        The error means a partial file is being sent,
-       which is ok in this case - so silently ignore the error.
+       which is ok in this case - so silently ignores the error.
     """
     def http_error_206(self, url, fp, errcode, errmsg, headers, data=None):
         pass
@@ -40,11 +40,12 @@ def appendThenRemove(src_name, dst_name):
     fdst.close()
     os.unlink(src_name)
 
+
 def humanBytes(bytes):
-        if bytes < 1024*1024:
-            return '%dkB' % (bytes/1024)
-        elif bytes > 1024*1024:
-            return '%dMB' % (bytes/1024/1024)
+    if bytes < 1024*1024:
+        return '%dkB' % (bytes/1024)
+    elif bytes > 1024*1024:
+        return '%dMB' % (bytes/1024/1024)
 
 
 class PodcastItem:
@@ -94,8 +95,8 @@ class PodcastItem:
         """Podcast File Naming Scheme
 
         Transform current podcast file names or setup a brand new file name
-        for ongoing podcast files. This method should be overridden later
-        in a subclass. When overriding this method you are responsible
+        for ongoing podcast files. This method is expected to be be overridden
+        later in a subclass. When overriding this method you are responsible
         for initialization of all "file" fields mentioned below.
 
         It is responsible for initialization of following fields:

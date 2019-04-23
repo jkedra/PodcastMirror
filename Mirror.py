@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 # vim:ts=4:expandtab
-# (c) Jerzy Kędra 2013-2016
-# Python 3.5
+# (c) Jerzy Kędra 2013-2019
+
 """ Mirror.py : Mirror a podcast to local resource.
 
     This script is intended to be run daily from cron,
-    and copy incoming podcasts into a local directory.
+    and copies incoming podcasts into a local directory.
     Primarily designed to mirror Daily Audio Bible podcasts,
-    after I have got caught with missing podcasts with end of
+    after I have got caught with missing podcasts at end of
     the year, when Brian Hardin (the podcast's author) removed the old
     podcasts and started a new yearly cycle.
     Default config: mirror.cfg
