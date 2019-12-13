@@ -66,8 +66,6 @@ class PodcastItem:
         self.item = item
         self.log = logging.getLogger("__main__")
         self.name = item.title.string.strip()
-        # self.url = item.find('media:content').find(
-        #  'feedburner:origenclosurelink').string.strip();
         self.url = item.find('media:content')['url']
         self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
         self.descr = item.description.string.strip()
@@ -89,7 +87,7 @@ class PodcastItem:
         self.initFileNamingScheme()
 
     def __repr__(self):
-        return "{}('{}')".format(self.__class__.__name__, self.item)
+        return f"{self.__class__.__name__}('{self.item}')"
 
     def initFileNamingScheme(self):
         """Podcast File Naming Scheme
@@ -136,7 +134,7 @@ class PodcastItem:
         if os.path.exists(self.file_txt):
             return
         bf = BeautifulSoup(self.descr, 'lxml').contents[0].get_text()
-        descr = "{}\n{}\n".format(self.name, bf)
+        descr = f"{self.name}\n{bf}\n"
         with open(self.file_txt, mode="w") as f:
             f.write(descr)
 
@@ -173,9 +171,9 @@ class PodcastItem:
         Can be due to content too short or invalid MP3.
         """
         if url:
-            self.log.warning("failed to retrieve %s " % url)
+            self.log.warning(f"failed to retrieve {url} ")
         if os.path.exists(path):
-            self.log.debug("removing %s" % path)
+            self.log.debug(f"removing {path}")
             os.unlink(path)
 
     def _file_complete(self):
@@ -197,14 +195,14 @@ class PodcastItem:
         self.remove_file(self.file_data)
         self.remove_file(self.file_temp)
 
-        l.info("Downloading {}".format(file_data))
+        l.info(f"Downloading {file_data}")
         try:
             retrieve(self.url, file_data, reporthook=self.reporthook)
             return True
         except urllib.error.ContentTooShortError:
             self.remove_file(file_data, self.url)
             # do not cleanup - will be continued later
-            l.info("Failed downloading {}".format(file_data))
+            l.info(f"Failed downloading {file_data}")
             return False
 
     def download_continue(self):
@@ -216,11 +214,11 @@ class PodcastItem:
         size = self.size
         r = urllib.request
 
-        l.info("%s partially retrieved - resuming" % file_data)
-        l.debug("only {:d}<{:d} received".format(sizesofar, size))
+        l.info(f"{file_data} partially retrieved - resuming")
+        l.debug(f"only {sizesofar:d}<{size:d} received")
         try:
             r._urlopener = PodcastURLopener()
-            r._urlopener.addheader("Range", "bytes=%s-" % (sizesofar))
+            r._urlopener.addheader("Range", f"bytes={sizesofar}-")
             r.urlretrieve(url, file_temp, reporthook=self.reporthook)
             r._urlopener = urllib.request.FancyURLopener()
             appendThenRemove(file_temp, file_data)
@@ -244,7 +242,7 @@ class PodcastItem:
         if os.path.exists(file_data):
             sizesofar = os.stat(file_data).st_size
             if self._file_complete():
-                l.debug("Skipping {}".format(file_data))
+                l.debug(f"Skipping {file_data}")
                 return
             elif sizesofar < size:
                 succeed = self.download_continue()
@@ -255,7 +253,7 @@ class PodcastItem:
             succeed = self.download_full()
 
         if succeed:
-            l.debug("stored as {}".format(file_data))
+            l.debug(f"stored as {file_data}")
 
 
 class Podcast:
@@ -298,7 +296,7 @@ class Podcast:
         return self._pi_cls(self.podcasts[self.index])
 
     def __repr__(self):
-        return "{}('{}')".format(self.__class__.__name__, self.url)
+        return f"{self.__class__.__name__}('{self.url}')"
 
 
 def testPodcast():

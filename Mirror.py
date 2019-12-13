@@ -96,20 +96,20 @@ target_dir = config.get("Mirror", "data") or args.target
 
 if not os.path.isdir(target_dir):
     os.makedirs(target_dir)
-log.debug("changing dir to {}".format(target_dir))
+log.debug(f"changing dir to {target_dir}")
 os.chdir(target_dir)
 
 for pi in Podcast(baseurl, DABItem):
     podcast_age = datetime.datetime.now() - pi.date
     if podcast_age > datetime.timedelta(days=args.days):
-        log.debug("{} {} too old".format(pi.name, pi.date))
+        log.debug(f"{pi.name} {pi.date} too old")
         continue
 
     # can you ever download the file, reiterate if not
     try:
         pi.getsize()
     except (IOError, TypeError) as e:
-        print(("IOError, TypeError %s" % e))
+        print(f"IOError, TypeError {e}")
         continue
 
     verbose = args.verbose and args.verbose > 1 and not args.silent
