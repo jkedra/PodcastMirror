@@ -13,6 +13,7 @@ import http.client
 import logging
 import os
 import shutil
+import textwrap
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -310,6 +311,11 @@ def testPodcastItem():
 
 def testPodcastItems():
     for pi in testPodcast():
-        print("myname:%s\n\tdate:%s\n\tfilename:%s\n\tbase:%s sufx:%s" % \
-            (pi.myname, pi.date, pi.file_data, pi.file_base, pi.file_suffix))
+        print(textwrap.dedent(f"""
+                myname:{pi.myname}
+                        date:{pi.date}
+                    filename:{pi.file_data}
+                        base: {pi.file_base}
+                        sufx: {pi.file_suffix}
+                """))
 
