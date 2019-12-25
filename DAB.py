@@ -12,7 +12,7 @@ from Podcast import Podcast, PodcastItem
 
 
 class DABItem(PodcastItem):
-    def initFileNamingScheme(self):
+    def init_filenaming_scheme(self):
         """Podcast File Naming Scheme.
 
         Transforms current podcast file names according to rules defined

@@ -3,7 +3,7 @@ from random import choice
 from bs4 import BeautifulSoup
 import Podcast
 
-p = Podcast.testPodcast()
+p = Podcast.test_podcast()
 pi = next(p)
 
 

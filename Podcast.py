@@ -28,11 +28,12 @@ class PodcastURLopener(urllib.request.FancyURLopener):
        The error means a partial file is being sent,
        which is ok in this case - so silently ignores the error.
     """
+
     def http_error_206(self, url, fp, errcode, errmsg, headers, data=None):
         pass
 
 
-def appendThenRemove(src_name, dst_name):
+def append_then_remove(src_name, dst_name):
     """Append to the end of destination and unlink the source."""
     fsrc = open(src_name, 'rb')
     fdst = open(dst_name, 'ab')
@@ -42,11 +43,11 @@ def appendThenRemove(src_name, dst_name):
     os.unlink(src_name)
 
 
-def humanBytes(bytes):
-    if bytes < 1024*1024:
-        return '%dkB' % (bytes/1024)
-    elif bytes > 1024*1024:
-        return '%dMB' % (bytes/1024/1024)
+def human_bytes(value):
+    if value < 1024 * 1024:
+        return '%dkB' % (value /1024)
+    elif value > 1024 * 1024:
+        return '%dMB' % (value /1024/1024)
 
 
 class PodcastItem:
@@ -58,7 +59,7 @@ class PodcastItem:
         date  - Item publication date.
         descr - Item description.
 
-    You might need to override initFileNamingScheme method.
+    You might need to override init_filenaming_scheme method.
     """
 
     def __init__(self, item):
@@ -77,20 +78,20 @@ class PodcastItem:
 
         self.size = 0
         self._sizesofar = 0
-        self._verbose = False    # helper used in self.download
+        self._verbose = False  # helper used in self.download
 
-        # initialized by initFileNamingScheme
+        # initialized by init_filenaming_scheme
         self.myname = None
         self.file = None
         self.file_data = None
         self.file_temp = None
         self.file_txt = None
-        self.initFileNamingScheme()
+        self.init_filenaming_scheme()
 
     def __repr__(self):
         return f"{self.__class__.__name__}('{self.item}')"
 
-    def initFileNamingScheme(self):
+    def init_filenaming_scheme(self):
         """Podcast File Naming Scheme
 
         Transform current podcast file names or setup a brand new file name
@@ -124,9 +125,9 @@ class PodcastItem:
             # Unknown size
             print(' Read %d blocks' % blocks_read)
         else:
-            amount_read = blocks_read * block_size + self._sizesofar
+            amount_read = blocks_read*block_size + self._sizesofar
             print(' Read %s %d%%       \r' %
-                  (humanBytes(amount_read), 100*amount_read/total_size),
+                  (human_bytes(amount_read), 100*amount_read/total_size),
                   end=' ')
         return
 
@@ -222,7 +223,7 @@ class PodcastItem:
             r._urlopener.addheader("Range", f"bytes={sizesofar}-")
             r.urlretrieve(url, file_temp, reporthook=self.reporthook)
             r._urlopener = urllib.request.FancyURLopener()
-            appendThenRemove(file_temp, file_data)
+            append_then_remove(file_temp, file_data)
             return True
         except urllib.error.ContentTooShortError:
             self.remove_file(file_temp, url)
@@ -276,6 +277,7 @@ class Podcast:
             pubdate
 
     """
+
     def __init__(self, url, podcastitem_cls=PodcastItem):
         self.index = 0
         self.url = url
@@ -300,17 +302,17 @@ class Podcast:
         return f"{self.__class__.__name__}('{self.url}')"
 
 
-def testPodcast():
+def test_podcast():
     return Podcast('http://feeds.feedburner.com/dailyaudiobible/')
 
 
-def testPodcastItem():
-    p = testPodcast()
+def test_podcastitem():
+    p = test_podcast()
     return next(p)
 
 
-def testPodcastItems():
-    for pi in testPodcast():
+def test_podcastitems():
+    for pi in test_podcast():
         print(textwrap.dedent(f"""
                 myname:{pi.myname}
                         date:{pi.date}
@@ -318,4 +320,3 @@ def testPodcastItems():
                         base: {pi.file_base}
                         sufx: {pi.file_suffix}
                 """))
-

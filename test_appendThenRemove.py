@@ -19,9 +19,9 @@ class TestAppendThenRemove(TestCase):
             pass
 
     def test_appendThenRemove_unlink(self):
-        from Podcast import appendThenRemove
+        from Podcast import append_then_remove
         import os
-        appendThenRemove(self.srcname, self.dstname)
+        append_then_remove(self.srcname, self.dstname)
         if os.path.isfile(self.srcname):
             self.fail('File exists but should be removed.')
 
