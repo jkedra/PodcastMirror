@@ -1,3 +1,7 @@
+DAB_*
+DATA_*
+unittest
+.python-version
 *.log
 *.pyc
 *.html

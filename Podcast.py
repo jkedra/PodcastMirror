@@ -11,6 +11,7 @@ import datetime
 import email.utils as eut
 import http.client
 import logging
+from logging import Logger
 import os
 import shutil
 import textwrap
@@ -66,10 +67,10 @@ class PodcastItem:
         if type(item) is not Tag:
             return
         self.item = item
-        self.log = logging.getLogger("__main__")
+        self.log: Logger = logging.getLogger("__main__")
         self.name = item.title.string.strip()
-        self.url = item.find('media:content')['url']
-        self.date = datetime.datetime(*eut.parsedate(item.pubdate.string)[:6])
+        self.url = item.find('enclosure')['url']
+        self.date = datetime.datetime(*eut.parsedate(item.pubDate.string)[:6])
         self.descr = item.description.string.strip()
 
         self.remote_file_name = os.path.basename(self.url)
@@ -190,7 +191,7 @@ class PodcastItem:
         Erase if the file exists.
         Return True on success, False otherwise.
         """
-        l = self.log
+        l: Logger = self.log
         file_data = self.file_data
         retrieve = urllib.request.urlretrieve
 
@@ -208,13 +209,13 @@ class PodcastItem:
             return False
 
     def download_continue(self):
-        l = self.log
+        l: Logger = self.log
         file_data = self.file_data
         url = self.url
         file_temp = self.file_temp
         sizesofar = os.stat(file_data).st_size
         size = self.size
-        r = urllib.request
+        r: urllib.request = urllib.request
 
         l.info(f"{file_data} partially retrieved - resuming")
         l.debug(f"only {sizesofar:d}<{size:d} received")
@@ -259,11 +260,12 @@ class PodcastItem:
 
 
 class Podcast:
-    """Represents Podcast(url, days). Allows iterating over podcasts.
+    """Represents Podcast(url, podcastitem_cls).
+
+    Allows iterating over podcasts returning podcastitem_cls objects.
 
     url - source of the podcast
-    days - how far in the past look behind
-    soup - Beautiful Soup of the Podcast
+    podcastitem_cls -
 
     channel
         title
@@ -283,7 +285,7 @@ class Podcast:
         self.url = url
         self._pi_cls = podcastitem_cls
         try:
-            self.soup = BeautifulSoup(urllib.request.urlopen(url), 'lxml')
+            self.soup = BeautifulSoup(urllib.request.urlopen(url), features="xml")
             self.podcasts = self.soup.findAll('item')
             self.index = len(self.podcasts)
         except urllib.error.URLError as e:
